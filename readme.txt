@@ -14,7 +14,7 @@ For the Map My Distance Website
 
 == Description ==
 
-A Custom Plugin
+A Custom Plugin for Map My Distance
 
 
 ## MMD Features
