@@ -1,0 +1,85 @@
+/* ---- Update Notice Styling ---- */
+.mmd-admin-notice {
+	position: relative;
+	padding: 12px;
+}
+.mmd-admin-notice a.notice-dismiss {
+	text-decoration: none;
+}
+.mmd-admin-notice .mmd-notice-title {
+	margin: 0;
+	padding: 0;
+	font-size: 15px;
+	font-weight: 500;
+	color: #222;
+}
+.mmd-admin-notice .mmd-notice-title b {
+	color: #b14beb;
+}
+.mmd-admin-notice p.mmd-notice-text {
+	margin: 5px 0 0;
+	padding: 0;
+}
+.mmd-notice.inline p.mmd-notice-text,
+.mmd-notice.inline a.mmd-notice-btn {
+	display: inline-block;
+	vertical-align: baseline;
+	margin-right: 5px;
+}
+
+/* -- Loader - Used in Settings & Dashboard Widget -- */
+.mmd-loader {
+	position: relative;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	width: 80px;
+	height: 80px;
+	z-index: 2;
+}
+.mmd-loader * {
+	box-sizing: border-box;
+}
+.mmd-loader-sector {
+	border-radius: 50%;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	border: 3px solid #b1b5d52b;
+	mix-blend-mode: overlay;
+}
+
+.mmd-loader-sector-pink {
+	animation: rotate 2s ease-out infinite;
+	border-top: 3px solid #f091ff;
+}
+.mmd-loader-sector-blue {
+	animation: rotate 2.5s ease-in infinite;
+	border-top: 3px solid #6883ec;
+}
+.mmd-loader-sector-purple {
+	animation: rotate 1.5s ease-in-out infinite;
+	border-top: 3px solid #b14beb;
+}
+.mmdSaveBtnLoader {
+	width: 56px;
+	height: 56px;
+	position: relative;
+	margin: 0 0 0 10px;
+}
+.mmdSettingBarMain .mmd-loader-wrap {
+	padding-top: 0;
+	align-items: center;
+}
+.mmdSettingBarMain .mmd-loader {
+	width: 40px;
+	height: 40px;
+}
+@keyframes rotate {
+	from {
+		transform: rotate(0);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}

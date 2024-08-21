@@ -1,0 +1,94 @@
+:root {
+	--mmd-color: #516ee0;
+	--mmd-bgcolor: #f4f9ff;
+}
+/* ---- List Columns ---- */
+.column-title {
+	width: 22%;
+}
+.column-mmd_cats {
+	width: 22%;
+}
+.column-mmd_clicks {
+	width: 100px;
+	text-align: center !important;
+}
+/* ---- Track Input ---- */
+#the-list td.column-mmd_permalink {
+	vertical-align: middle;
+}
+.link-meta-box-input {
+	position: relative;
+	max-width: 340px;
+}
+input.mmd-input {
+	width: 100%;
+	padding: 2px 10px;
+	border-radius: 4px;
+	border: 1px solid #8c8f94;
+	color: #2c3338;
+	background-color: #ffffff;
+}
+input.mmd-input:disabled {
+	border-color: 1px solid var(--mmd-color);
+	color: var(--mmd-color);
+	background-color: var(--mmd-bgcolor);
+}
+.mmd-copy {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 100%;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	font-size: 22px;
+	text-decoration: none;
+	padding: 0 7px;
+	color: var(--mmd-color);
+	cursor: pointer;
+	font-size: 18px;
+}
+.fa-copy:before {
+	background-color: #f2f7fd;
+	height: 30px;
+	width: 30px;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+}
+.mmd-tooltip {
+	background-color: var(--mmd-color);
+	position: absolute;
+	bottom: calc(100% + 2px);
+	right: -5px;
+	opacity: 0;
+	color: #fff;
+	border-radius: 4px;
+	padding: 2px 5px 3px;
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	transition: all 0.3s;
+}
+.mmd-tooltip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	right: 22px;
+	margin-right: -5px;
+	border-width: 5px;
+	border-style: solid;
+	border-color: var(--mmd-color) transparent transparent transparent;
+}
+.link-meta-box-input:hover .mmd-tooltip {
+	opacity: 1;
+	bottom: calc(100% + 7px);
+}
+/* ---- Total Clicks ---- */
+.mmd-list-clicks {
+	font-size: 14px;
+	font-weight: 500;
+	color: #464646;
+	text-align: center;
+}

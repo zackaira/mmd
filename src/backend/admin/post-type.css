@@ -1,0 +1,257 @@
+:root {
+	--mmd-color: #516ee0;
+	--mmd-bgcolor: #f4f9ff;
+}
+.mmd-loading {
+	height: 120px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.mmd-title {
+	margin: 18px 0 8px;
+	padding: 0;
+	font-size: 13px;
+}
+.mmd-desc {
+	margin: 0 0 12px;
+	padding: 0;
+	font-size: 12px;
+	color: #6e7175;
+}
+.link-meta-box-input {
+	position: relative;
+}
+.mmd-input {
+	width: 100%;
+	padding: 6px 10px;
+	border-radius: 4px;
+	border: 1px solid #8c8f94;
+	color: #2c3338;
+	background-color: #ffffff;
+}
+.mmd-url {
+	padding: 12px 10px;
+	border-radius: 4px;
+	border: 1px solid var(--mmd-color);
+	color: var(--mmd-color);
+	background-color: var(--mmd-bgcolor);
+}
+.mmd-copy {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 100%;
+	width: 100%;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	font-size: 22px;
+	text-decoration: none;
+	padding: 0 10px;
+	color: var(--mmd-color);
+	cursor: pointer;
+}
+.mmd-tooltip {
+	background-color: var(--mmd-color);
+	position: absolute;
+	bottom: calc(100% + 2px);
+	right: 0;
+	opacity: 0;
+	color: #fff;
+	border-radius: 4px;
+	padding: 2px 5px 3px;
+	font-size: 11px;
+	letter-spacing: 0.5px;
+	transition: all 0.3s;
+}
+.mmd-tooltip::after {
+	content: "";
+	position: absolute;
+	top: 100%;
+	right: 27px;
+	margin-right: -5px;
+	border-width: 5px;
+	border-style: solid;
+	border-color: var(--mmd-color) transparent transparent transparent;
+}
+.link-meta-box-input:hover .mmd-tooltip {
+	opacity: 1;
+	bottom: calc(100% + 7px);
+}
+
+.mmd-post-meta {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	border-top: 1px solid #c3c4c7;
+	padding-top: 32px;
+	margin-top: 35px;
+}
+.mmd-select {
+	width: fit-content;
+	margin: 0 5px 0 0;
+}
+.mmd-post-meta h5.mmd-title {
+	margin: 0;
+	font-size: 14px;
+}
+
+.mmd-post-clicks {
+	width: 220px;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	margin-right: 15px;
+}
+.mmd-post-clicks span.fa-trash-can,
+.mmd-post-clicks span.fa-circle-notch {
+	font-size: 14px;
+	margin-left: 15px;
+	color: #b2b2b2;
+}
+.mmd-post-clicks span.fa-trash-can {
+	cursor: pointer;
+}
+.mmd-post-clicks span.fa-trash-can:hover {
+	color: #b32d2d;
+}
+span.fa-circle-notch.rotate {
+	animation: rotation 1s infinite linear;
+}
+
+@keyframes rotation {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.mmd-apexchart {
+	margin-top: 15px;
+}
+
+/* -- Tags -- */
+.mmd-tags-list {
+	margin: 22px 0 0;
+}
+.mmd-tag-title {
+	margin: 0 10px 10px 0;
+}
+.mmd-tags-list .mmd-tag {
+	display: inline-block;
+	margin: 0 5px 10px 0;
+	border-radius: 4px;
+	background-color: #fff;
+	border: 1px solid #2c3338;
+	color: #2c3338;
+	transition: all 0.3s;
+}
+.link-tags-add {
+	display: flex;
+	align-items: center;
+}
+.link-tags-addtxt {
+	font-size: 13px;
+	margin: 5px 0 0;
+	color: #6e7175;
+}
+.link-tags-add input.mmd-input {
+	flex: 1;
+	border-right: 0;
+	border-radius: 3px 0 0 3px;
+	margin: 0;
+}
+.link-tags-add button.mmd-addtag {
+	width: 100px;
+	height: 30px;
+	border-radius: 0 3px 3px 0;
+	border: 1px solid #8c8f94;
+}
+.mmd-tags-list .mmd-tag:hover,
+.link-tags-add button.mmd-addtag:hover,
+.mmd-tags-list .mmd-tag.selected {
+	border-color: var(--mmd-color);
+	color: var(--mmd-color);
+	background-color: var(--mmd-bgcolor);
+}
+a.mmd-desc-a {
+	margin-left: 5px;
+}
+.mmd-tag-inner {
+	display: flex;
+	align-items: center;
+	position: relative;
+}
+.mmd-tag-name {
+	font-size: 12px;
+	padding: 5px 15px 5px 15px;
+	text-transform: capitalize;
+	cursor: pointer;
+}
+.mmd-tag-delete {
+	padding: 2px;
+	font-size: 12px;
+	color: #b2b2b2;
+	cursor: pointer;
+	position: absolute;
+	top: -17px;
+	right: 2px;
+	display: none;
+}
+.mmd-tag-delete:hover {
+	color: #be1616;
+}
+.mmd-tags-clear {
+	font-size: 11px;
+	color: #999;
+	margin: 0 0 0 5px;
+	letter-spacing: 0.2px;
+	cursor: pointer;
+}
+.mmd-tags-clear:hover {
+	color: #222;
+}
+.mmd-tags-inputs {
+	margin: 0 0 20px;
+}
+.mmd-taginput {
+	display: none;
+}
+.mmd-taginput.selected,
+.mmd-tags-list .mmd-tag.selected .mmd-tag-delete {
+	display: block;
+}
+.mmd-taginput-url {
+	width: 100%;
+}
+.mmd-taginput-url:focus.valid {
+	border-color: #09c60b;
+	box-shadow: none;
+}
+.mmd-taginput-url:focus.invalid {
+	border-color: #f28686;
+	box-shadow: none;
+}
+
+.mmd-unrectags-list {
+	margin: 10px 0 22px;
+}
+.mmd-extratag {
+	margin: 0 10px 0 0;
+	text-decoration: underline;
+}
+.mmd-extratag:last-child {
+	margin: 0;
+}
+
+.mmd-apexchart .apexcharts-legend-text {
+	text-transform: capitalize;
+}
+
+.mmd-premium-link {
+	margin: 0 0 0 5px;
+	color: #b14beb;
+}
