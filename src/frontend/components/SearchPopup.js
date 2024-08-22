@@ -1,28 +1,26 @@
 import React, { useState, useEffect, useRef } from "react";
+import { __ } from "@wordpress/i18n";
+import Loader from "../../Loader";
 
 const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [suggestions, setSuggestions] = useState([]);
 	const [isLoading, setIsLoading] = useState(false);
 	const debounceTimerRef = useRef(null);
+	const inputRef = useRef(null);
 
 	useEffect(() => {
-		if (searchQuery.length > 3) {
-			setIsLoading(true);
-			fetchSuggestions(searchQuery);
-		} else {
-			setSuggestions([]);
+		if (isOpen && inputRef.current) {
+			inputRef.current.focus();
 		}
-	}, [searchQuery]);
+	}, [isOpen]);
 
 	useEffect(() => {
-		console.log("Search query changed:", searchQuery);
 		if (searchQuery.length > 3) {
 			setIsLoading(true);
 			if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
 			debounceTimerRef.current = setTimeout(() => {
-				console.log("Debounce timer triggered");
 				fetchSuggestions(searchQuery);
 			}, 300);
 		} else {
@@ -35,7 +33,6 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 	}, [searchQuery]);
 
 	const fetchSuggestions = async (query) => {
-		console.log("Fetching suggestions for:", query);
 		try {
 			const response = await mapboxClient.current.geocoding
 				.forwardGeocode({
@@ -45,13 +42,8 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 				})
 				.send();
 
-			console.log("Geocoding response:", response);
-
 			if (response && response.body && response.body.features) {
-				console.log("Suggestions:", response.body.features);
 				setSuggestions(response.body.features);
-			} else {
-				console.log("No suggestions found");
 			}
 		} catch (error) {
 			console.error("Error fetching suggestions:", error);
@@ -59,10 +51,6 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 			setIsLoading(false);
 		}
 	};
-
-	useEffect(() => {
-		console.log("Suggestions updated:", suggestions);
-	}, [suggestions]);
 
 	const handleSelect = (feature) => {
 		const map = mapRef.current;
@@ -84,27 +72,37 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 				<div className="mmd-popup-inner">
 					<input
 						type="text"
+						ref={inputRef}
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
 						placeholder="Search for a location"
 						className="search-input"
 					/>
-					{isLoading && <div className="search-loading">Loading...</div>}
-					{suggestions.length > 0 && (
-						<ul className="search-suggestions">
-							{suggestions.map((feature) => (
-								<li
-									key={feature.id}
-									onClick={() => handleSelect(feature)}
-									className="search-suggestion"
-								>
-									{feature.place_name}
-								</li>
-							))}
-						</ul>
+					{isLoading ? (
+						<div className="search-loading">
+							<Loader width={40} height={40} />
+						</div>
+					) : (
+						<>
+							{suggestions && suggestions.length > 0 && (
+								<ul className="search-suggestions">
+									{suggestions.map((feature) => (
+										<li
+											key={feature.id}
+											onClick={() => handleSelect(feature)}
+											className="search-suggestion"
+										>
+											{feature.place_name}
+										</li>
+									))}
+								</ul>
+							)}
+						</>
 					)}
 					{suggestions.length === 0 && searchQuery.length > 3 && !isLoading && (
-						<div>No suggestions found</div>
+						<div className="mmd-no-search">
+							{__("No suggestions found", "mmd")}
+						</div>
 					)}
 				</div>
 				<button

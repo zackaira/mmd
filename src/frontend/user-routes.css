@@ -32,11 +32,6 @@
 .mmd-route.alt-background {
 	background-color: #f7f7f7;
 }
-.mmd-user-routes .mmd-route.th {
-	font-weight: bold;
-	color: #444;
-	font-size: 15px;
-}
 .mmd-user-routes .mmd-route h4.route-title {
 	flex: 1;
 	font-size: 16px;
@@ -46,10 +41,13 @@
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+	text-transform: capitalize;
 }
+.mmd-user-routes .mmd-route.th,
 .mmd-user-routes .mmd-route.th h4.route-title {
-	font-size: inherit;
-	font-weight: inherit;
+	font-weight: bold;
+	color: #444;
+	font-size: 15px;
 }
 .mmd-user-routes .mmd-route .route-desc {
 	flex: 1;

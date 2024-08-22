@@ -12,7 +12,7 @@ const AccountRoutes = ({ mmdObj }) => {
 	const [savedRoutes, setSavedRoutes] = useState([]);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(0);
-	const routesPerPage = 15;
+	const routesPerPage = 2;
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -118,7 +118,7 @@ const AccountRoutes = ({ mmdObj }) => {
 					{savedRoutes && savedRoutes.length > 0 ? (
 						<div className="mmd-user-routes">
 							<div className="mmd-route th">
-								<div className="route-title">{__("Route Name", "mmd")}</div>
+								<h4 className="route-title">{__("Route Name", "mmd")}</h4>
 								<p className="route-desc">{__("Description", "mmd")}</p>
 								<div className="route-distance">{__("Distance", "mmd")}</div>
 								<div className="route-date">{__("Created On", "mmd")}</div>
@@ -148,11 +148,17 @@ const AccountRoutes = ({ mmdObj }) => {
 										<span
 											className="fa-solid fa-copy mmd-route-icon copy"
 											onClick={() => handleCopyRouteUrl(route.id)}
+											title={__("Copy Route URL", "mmd")}
 										></span>
-										<span className="fa-solid fa-edit mmd-route-icon edit"></span>
+										<span
+											className="fa-solid fa-edit mmd-route-icon edit"
+											onClick={() => {}}
+											title={__("Edit This Route", "mmd")}
+										></span>
 										<span
 											className="fa-solid fa-trash-can mmd-route-icon delete"
 											onClick={() => handleDeleteRoute(route.id)}
+											title={__("Delete This Route", "mmd")}
 										></span>
 									</div>
 								</div>
