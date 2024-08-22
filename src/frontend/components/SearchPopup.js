@@ -9,9 +9,20 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 	useEffect(() => {
 		if (searchQuery.length > 3) {
 			setIsLoading(true);
+			fetchSuggestions(searchQuery);
+		} else {
+			setSuggestions([]);
+		}
+	}, [searchQuery]);
+
+	useEffect(() => {
+		console.log("Search query changed:", searchQuery);
+		if (searchQuery.length > 3) {
+			setIsLoading(true);
 			if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
 
 			debounceTimerRef.current = setTimeout(() => {
+				console.log("Debounce timer triggered");
 				fetchSuggestions(searchQuery);
 			}, 300);
 		} else {
@@ -24,6 +35,7 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 	}, [searchQuery]);
 
 	const fetchSuggestions = async (query) => {
+		console.log("Fetching suggestions for:", query);
 		try {
 			const response = await mapboxClient.current.geocoding
 				.forwardGeocode({
@@ -33,8 +45,13 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 				})
 				.send();
 
+			console.log("Geocoding response:", response);
+
 			if (response && response.body && response.body.features) {
+				console.log("Suggestions:", response.body.features);
 				setSuggestions(response.body.features);
+			} else {
+				console.log("No suggestions found");
 			}
 		} catch (error) {
 			console.error("Error fetching suggestions:", error);
@@ -42,6 +59,10 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 			setIsLoading(false);
 		}
 	};
+
+	useEffect(() => {
+		console.log("Suggestions updated:", suggestions);
+	}, [suggestions]);
 
 	const handleSelect = (feature) => {
 		const map = mapRef.current;
@@ -81,6 +102,9 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 								</li>
 							))}
 						</ul>
+					)}
+					{suggestions.length === 0 && searchQuery.length > 3 && !isLoading && (
+						<div>No suggestions found</div>
 					)}
 				</div>
 				<button

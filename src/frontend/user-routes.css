@@ -83,11 +83,8 @@
 .mmd-user-routes .mmd-route .route-controls .mmd-route-icon:hover {
 	color: var(--e-global-color-secondary);
 }
-.route-controls .mmd-route-icon.copy {
-}
-.route-controls .mmd-route-icon.edit {
-}
-.route-controls .mmd-route-icon.delete {
+.mmd-user-routes .mmd-route .route-controls .mmd-route-icon.delete:hover {
+	color: #bd0808;
 }
 
 .mmd-route-pagination {

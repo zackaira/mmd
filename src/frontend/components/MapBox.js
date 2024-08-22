@@ -391,14 +391,8 @@ const MapBox = ({ mmdObj }) => {
 				bounds: mapRef.current.getBounds().toArray(),
 			};
 
-			if (action === "save" || (action === "share" && isSaved)) {
-				setSaveShareAction({ action, routeData });
-				setIsSaveShareOpen(true);
-			} else if (action === "share" && !isSaved) {
-				toast.info(__("Please save the route before sharing.", "mmd"));
-				setSaveShareAction({ action: "save", routeData });
-				setIsSaveShareOpen(true);
-			}
+			setSaveShareAction({ action, routeData });
+			setIsSaveShareOpen(true);
 		},
 		[
 			geojsonRef,
@@ -406,7 +400,6 @@ const MapBox = ({ mmdObj }) => {
 			rawFullDistance,
 			units,
 			userDetails,
-			isSaved,
 			saveRouteToCookie,
 			showLoginRegisterToast,
 		]
@@ -965,6 +958,10 @@ const MapBox = ({ mmdObj }) => {
 		handleToggleSaveShare("save");
 	};
 
+	const handleSaveSuccess = useCallback(() => {
+		setIsSaved(true);
+	}, []);
+
 	const showLoginRegisterToast = useCallback(() => {
 		toast.info(
 			<div>
@@ -1030,7 +1027,7 @@ const MapBox = ({ mmdObj }) => {
 				action={saveShareAction.action}
 				routeData={saveShareAction.routeData}
 				distance={rawFullDistance}
-				onSaveSuccess={() => setIsSaved(true)}
+				onSaveSuccess={handleSaveSuccess}
 				isSaved={isSaved}
 			/>
 			<ToastContainer

@@ -138,9 +138,11 @@
 }
 .mmd-popup-inner {
 	position: relative;
+	flex: 1;
+}
+.mmd-popup-inner.saveshare {
 	max-height: 80%;
 	overflow-y: scroll;
-	flex: 1;
 }
 button.mmd-popup-close {
 	background: none !important;
@@ -176,6 +178,8 @@ button.mmd-popup-close:hover {
 	margin: 0;
 	padding: 0;
 	width: 100%;
+	left: 0;
+	top: 100%;
 }
 .search-suggestion {
 	margin: 0;
