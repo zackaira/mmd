@@ -178,7 +178,12 @@ const SaveSharePopup = ({
 												></textarea>
 											</div>
 											<div className="mmd-form-row">
-												<label>{__("Tags (optional)", "mmd")}</label>
+												<label>
+													{__(
+														"Tags (optional - to help you find routes again, when there are lots)",
+														"mmd"
+													)}
+												</label>
 												<div className="tags-input">
 													<div className="tags-list">
 														{tags.map((tag, index) => (
@@ -246,9 +251,12 @@ const SaveSharePopup = ({
 											<div className="mmd-share-btns">
 												<button
 													className="social-btn"
-													onClick={() =>
-														navigator.clipboard.writeText(routeUrl)
-													}
+													onClick={() => {
+														navigator.clipboard.writeText(routeUrl);
+														toast.success(
+															__("Route Saved to Clipboard!", "mmd")
+														);
+													}}
 												>
 													{__("Copy Route URL", "mmd")}
 												</button>

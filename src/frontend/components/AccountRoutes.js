@@ -46,6 +46,43 @@ const AccountRoutes = ({ mmdObj }) => {
 		fetchRoutes();
 	}, [currentPage, mmdObj.restUrl, mmdObj.userId]);
 
+	const conversionFactors = {
+		km: 1,
+		mi: 0.621371,
+		m: 1000,
+		ft: 3280.84,
+		yd: 1093.61,
+		nm: 0.539957,
+	};
+
+	const convertDistance = (distanceInKm, toUnit) => {
+		return distanceInKm * conversionFactors[toUnit];
+	};
+
+	const getUnitName = (unit) => {
+		const unitNames = {
+			km: "km",
+			mi: "mi",
+			m: "m",
+			ft: "ft",
+			yd: "yds",
+			nm: "nm",
+		};
+		return unitNames[unit] || unit;
+	};
+
+	const parseRouteData = (data) => {
+		if (typeof data === "string") {
+			try {
+				return JSON.parse(data);
+			} catch (error) {
+				console.error("Error parsing route data:", error);
+				return {};
+			}
+		}
+		return data || {};
+	};
+
 	const handleCopyRouteUrl = (routeId) => {
 		const routeUrl = `${mmdObj.siteUrl}?route=${routeId}`;
 		navigator.clipboard.writeText(routeUrl).then(
@@ -124,45 +161,55 @@ const AccountRoutes = ({ mmdObj }) => {
 								<div className="route-date">{__("Created On", "mmd")}</div>
 								<div className="route-controls"></div>
 							</div>
-							{savedRoutes.map((route, index) => (
-								<div
-									key={route.id}
-									className={`mmd-route ${
-										index % 2 === 0 ? "alt-background" : ""
-									}`}
-								>
-									{deletingRouteId === route.id && (
-										<div className="route-loader">
-											<Loader width={20} height={20} />
+							{savedRoutes.map((route, index) => {
+								const routeData = parseRouteData(route.route_data);
+								const savedUnits = routeData.units || "km";
+								const distanceInKm = parseFloat(route.distance);
+								const convertedDistance =
+									savedUnits === "km"
+										? distanceInKm
+										: convertDistance(distanceInKm, savedUnits);
+
+								return (
+									<div
+										key={route.id}
+										className={`mmd-route ${
+											index % 2 === 0 ? "alt-background" : ""
+										}`}
+									>
+										{deletingRouteId === route.id && (
+											<div className="route-loader">
+												<Loader width={20} height={20} />
+											</div>
+										)}
+										<h4 className="route-title">{route.route_name}</h4>
+										<p className="route-desc">{route.route_description}</p>
+										<div className="route-distance">
+											{convertedDistance.toFixed(2)} {getUnitName(savedUnits)}
 										</div>
-									)}
-									<h4 className="route-title">{route.route_name}</h4>
-									<p className="route-desc">{route.route_description}</p>
-									<div className="route-distance">
-										{parseFloat(route.distance).toFixed(2)}
+										<div className="route-date">
+											{new Date(route.created_at).toLocaleDateString()}
+										</div>
+										<div className="route-controls">
+											<span
+												className="fa-solid fa-copy mmd-route-icon copy"
+												onClick={() => handleCopyRouteUrl(route.id)}
+												title={__("Copy Route URL", "mmd")}
+											></span>
+											<span
+												className="fa-solid fa-edit mmd-route-icon edit"
+												onClick={() => {}}
+												title={__("Edit This Route", "mmd")}
+											></span>
+											<span
+												className="fa-solid fa-trash-can mmd-route-icon delete"
+												onClick={() => handleDeleteRoute(route.id)}
+												title={__("Delete This Route", "mmd")}
+											></span>
+										</div>
 									</div>
-									<div className="route-date">
-										{new Date(route.created_at).toLocaleDateString()}
-									</div>
-									<div className="route-controls">
-										<span
-											className="fa-solid fa-copy mmd-route-icon copy"
-											onClick={() => handleCopyRouteUrl(route.id)}
-											title={__("Copy Route URL", "mmd")}
-										></span>
-										<span
-											className="fa-solid fa-edit mmd-route-icon edit"
-											onClick={() => {}}
-											title={__("Edit This Route", "mmd")}
-										></span>
-										<span
-											className="fa-solid fa-trash-can mmd-route-icon delete"
-											onClick={() => handleDeleteRoute(route.id)}
-											title={__("Delete This Route", "mmd")}
-										></span>
-									</div>
-								</div>
-							))}
+								);
+							})}
 
 							{totalPages > 1 && (
 								<div className="mmd-route-pagination">

@@ -312,7 +312,7 @@ button.mmd-popup-close:hover {
 }
 /* - Activities - */
 .radio-group {
-	margin: 5px 0 10px;
+	margin: 10px 0;
 }
 .radio-item {
 	display: inline-flex !important;

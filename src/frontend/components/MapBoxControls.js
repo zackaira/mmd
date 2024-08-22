@@ -23,8 +23,6 @@ const MapBoxControls = ({
 	onToggleCenterOnNewMarker,
 	onToggleSearch,
 	onToggleSaveShare,
-	isLoggedIn,
-	isSaved,
 }) => {
 	return (
 		<div className="mmd-boxwrap">
@@ -72,6 +70,18 @@ const MapBoxControls = ({
 						className="fa-solid fa-edit mmd-control edit"
 						onClick={onToggleEditable}
 						title={__("Make Route Editable", "mmd")}
+					></div>
+					<div
+						className={`fa-solid fa-expand mmd-control zoom-to-bounds ${
+							canZoomToBounds ? "" : "disabled"
+						}`}
+						{...(canZoomToBounds ? { onClick: onZoomToBounds } : {})}
+						title={__("Zoom to Route Bounds", "mmd")}
+					></div>
+					<div
+						className="fa-solid fa-location-dot mmd-control clear"
+						onClick={onClear}
+						title={__("Start a New Route", "mmd")}
 					></div>
 				</div>
 			)}

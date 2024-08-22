@@ -246,12 +246,12 @@ const MapBox = ({ mmdObj }) => {
 						toast.error(__("Failed to load route. Please try again.", "mmd"));
 						routeLoadingRef.current = false;
 						setIsLoading(false);
+					})
+					.finally(() => {
+						routeLoadingRef.current = false;
+						setIsLoading(false);
+						setTimeout(() => zoomToBoundingBox(), 300);
 					});
-				// .finally(() => {
-				// 	routeLoadingRef.current = false;
-				// 	setIsLoading(false);
-				// 	setTimeout(() => zoomToBoundingBox(), 300);
-				// });
 			} else if (isFromCookie) {
 				processRouteData(routeIdOrData);
 			} else {
@@ -920,10 +920,18 @@ const MapBox = ({ mmdObj }) => {
 			setLastDistance(0);
 			setLatestLatLng(null);
 			setIsRouteClosed(false);
+			setIsRouteEditable(true);
 
 			// Clear undo/redo history
 			historyRef.current = [];
 			futureRef.current = [];
+
+			// Remove the route parameter from the URL
+			const url = new URL(window.location.href);
+			if (url.searchParams.has("route")) {
+				url.searchParams.delete("route");
+				window.history.replaceState({}, "", url.toString());
+			}
 		}
 	}, []);
 
