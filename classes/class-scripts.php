@@ -61,7 +61,7 @@ class MapMyDistance {
 		wp_register_style('mmd-fontawesome', esc_url(MMD_PLUGIN_URL . 'assets/font-awesome/css/all.min.css'), array(), MMD_PLUGIN_VERSION);
 		
 		// MMD Frontend
-		// wp_register_style('mmd-frontend-style', esc_url(MMD_PLUGIN_URL . 'dist/frontend' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
+		wp_register_style('mmd-frontend-style', esc_url(MMD_PLUGIN_URL . 'dist/frontend' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
 		// wp_register_script('mmd-frontend-script', esc_url(MMD_PLUGIN_URL . 'dist/frontend' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
 		// MMD Map Page
 		wp_register_style('mmd-map-style', esc_url(MMD_PLUGIN_URL . 'dist/mmd' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
@@ -97,6 +97,9 @@ class MapMyDistance {
 		$mmdOptions = $mmdSavedOptions ? json_decode($mmdSavedOptions) : '';
 		$current_url = $_SERVER['REQUEST_URI'];
 
+		// Frontend Styling
+		wp_enqueue_style('mmd-frontend-style');
+
 		// Retrieve user details
 		if ( is_user_logged_in() ) {
 			$user_id = get_current_user_id();
@@ -113,15 +116,16 @@ class MapMyDistance {
 
 		// Map Page
 		if( is_front_page() ) {
-			$route_id = isset($_GET['route']) ? sanitize_text_field($_GET['route']) : false;
+			$route_id = isset($_GET['route']) ? sanitize_text_field($_GET['route']) : '';
 
 			wp_enqueue_style('mmd-map-style');
 			wp_enqueue_script('mmd-map-script');
 			wp_localize_script('mmd-map-script', 'mmdMapObj', array(
+				'siteUrl' => esc_url(home_url()),
 				'apiUrl' => esc_url(get_rest_url()),
 				'nonce' => wp_create_nonce('wp_rest'),
 				'userDetails' => $user_details,
-				'routeId' => $route_id ? (int) $route_id : (bool) false,
+				'routeId' => $route_id,
 			));
 		}
 
@@ -130,6 +134,7 @@ class MapMyDistance {
 			wp_enqueue_style('mmd-user-routes-style');
 			wp_enqueue_script('mmd-user-routes-script');
 			wp_localize_script('mmd-user-routes-script', 'mmdRoutesObj', array(
+				'siteUrl' => esc_url(home_url()),
 				'apiUrl' => esc_url(get_rest_url()),
 				'nonce' => wp_create_nonce('wp_rest'),
 				'userDetails' => $user_details,
@@ -331,7 +336,7 @@ class MapMyDistance {
 		$charset_collate = $wpdb->get_charset_collate();
 	
 		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
-			id BIGINT(20) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			id CHAR(32) NOT NULL,
 			user_id BIGINT(20) UNSIGNED NOT NULL,
 			route_name VARCHAR(255) NOT NULL,
 			route_description TEXT,
@@ -340,6 +345,7 @@ class MapMyDistance {
 			route_data LONGTEXT NOT NULL,
 			created_at DATETIME NOT NULL,
 			distance FLOAT NOT NULL,
+			PRIMARY KEY (id),
 			INDEX idx_user_id (user_id),
 			INDEX idx_created_at (created_at)
 		) $charset_collate;";

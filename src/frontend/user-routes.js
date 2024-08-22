@@ -6,8 +6,6 @@ import AccountRoutes from "./components/AccountRoutes";
 document.addEventListener("DOMContentLoaded", () => {
 	const mmdAccRoutesRoot = document.getElementById("mmd-user-routes");
 
-	console.log("Routes !!");
-
 	if (mmdAccRoutesRoot) {
 		const root = createRoot(mmdAccRoutesRoot);
 		root.render(<AccountRoutes mmdObj={mmdRoutesObj} />);

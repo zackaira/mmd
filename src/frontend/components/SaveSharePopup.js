@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
+import { toast } from "react-toastify";
+import Loader from "../../Loader";
 
 const SaveSharePopup = ({
 	mmdObj,
@@ -9,6 +11,8 @@ const SaveSharePopup = ({
 	action,
 	routeData,
 	distance,
+	onSaveSuccess,
+	isSaved,
 }) => {
 	const [activeTab, setActiveTab] = useState(action);
 	const [routeName, setRouteName] = useState("");
@@ -16,6 +20,7 @@ const SaveSharePopup = ({
 	const [tags, setTags] = useState([]);
 	const [activity, setActivity] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
+	const [routeUrl, setRouteUrl] = useState("");
 
 	const activities = userDetails?.activities || [];
 
@@ -29,9 +34,9 @@ const SaveSharePopup = ({
 			setDescription("");
 			setTags([]);
 			setActivity("");
-			setActiveTab(action.action); // Update this line
+			setActiveTab(action);
 		}
-	}, [isOpen, action]);
+	}, [isOpen, action, onSaveSuccess]);
 
 	if (!isOpen) return null;
 
@@ -42,6 +47,12 @@ const SaveSharePopup = ({
 	const saveRoute = async (e) => {
 		e.preventDefault();
 		setIsLoading(true);
+
+		if (!routeData) {
+			console.error("No route data available to save");
+			setIsLoading(false);
+			return;
+		}
 
 		try {
 			const response = await fetch(`${mmdObj.apiUrl}mmd-api/v1/save-route`, {
@@ -64,26 +75,20 @@ const SaveSharePopup = ({
 				throw new Error("Failed to save route");
 			}
 
-			console.log({
-				routeName,
-				description,
-				tags,
-				activity,
-				routeData,
-				distance,
-			});
-
 			const data = await response.json();
-			// setTimeout(() => {
+
+			onSaveSuccess();
 			setIsLoading(false);
-			onClose();
-			// }, 400);
-			// You might want to show a success message or update the UI here
-			console.log("Route saved successfully:", data);
+			setRouteUrl(`${mmdObj.siteUrl}/?route=${data.route_id}`);
+			setActiveTab("share");
+			// onClose();
+
+			toast.success(__("Route saved successfully!", "mmd"));
+			// console.log("Route saved successfully:", data);
 		} catch (error) {
 			setIsLoading(false);
-			console.error("Error saving route:", error);
-			// You might want to show an error message to the user here
+			toast.error(__("Failed to save route, please try again", "mmd"));
+			// console.error("Error saving route:", error);
 		}
 	};
 
@@ -107,7 +112,9 @@ const SaveSharePopup = ({
 			<div className="mmd-popup-bg" onClick={onClose}></div>
 			<div className="mmd-popup">
 				{isLoading ? (
-					<div>Loading...</div>
+					<div className="mmd-load-route">
+						<Loader loaderText={__("Saving...", "mmd")} />
+					</div>
 				) : (
 					<div className="mmd-popup-inner">
 						<ul className="mmd-tabs">
@@ -192,7 +199,11 @@ const SaveSharePopup = ({
 												</label>
 												<div className="radio-group">
 													{activities.map((activityOption) => (
-														<div key={activityOption} className="radio-item">
+														<label
+															htmlFor={activityOption}
+															key={activityOption}
+															className="radio-item"
+														>
 															<input
 																type="radio"
 																id={activityOption}
@@ -201,10 +212,8 @@ const SaveSharePopup = ({
 																checked={activity === activityOption}
 																onChange={(e) => setActivity(e.target.value)}
 															/>
-															<label htmlFor={activityOption}>
-																{activityOption.replace("_", " ")}
-															</label>
-														</div>
+															{activityOption.replace("_", " ")}
+														</label>
 													))}
 												</div>
 											</div>
@@ -222,100 +231,113 @@ const SaveSharePopup = ({
 											"mmd"
 										)}
 									</p>
-									<div className="mmd-share-btns">
-										<button
-											className="social-btn"
-											onClick={() => navigator.clipboard.writeText(routeUrl)}
-										>
-											{__("Copy Route URL", "mmd")}
-										</button>
-										<button
-											className="social-btn"
-											onClick={() =>
-												window.open(
-													`https://www.messenger.com/t/?link=${encodeURIComponent(
-														routeUrl
-													)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("Messenger", "mmd")}
-										</button>
-										<button
-											className="social-btn whatsapp"
-											onClick={() =>
-												window.open(
-													`https://wa.me/?text=${encodeURIComponent(routeUrl)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("WhatsApp", "mmd")}
-										</button>
-										<button
-											className="social-btn telegram"
-											onClick={() =>
-												window.open(
-													`https://t.me/share/url?url=${encodeURIComponent(
-														routeUrl
-													)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("Telegram", "mmd")}
-										</button>
-										<button
-											className="social-btn facebook"
-											onClick={() =>
-												window.open(
-													`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-														routeUrl
-													)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("Facebook", "mmd")}
-										</button>
-										<button
-											className="social-btn xcom"
-											onClick={() =>
-												window.open(
-													`https://twitter.com/intent/tweet?url=${encodeURIComponent(
-														routeUrl
-													)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("X.com", "mmd")}
-										</button>
-										<button
-											className="social-btn instagram"
-											onClick={() =>
-												alert(
-													"Instagram does not support direct URL sharing from web. You might need to copy the URL manually."
-												)
-											}
-										>
-											{__("Instagram", "mmd")}
-										</button>
-										<button
-											className="social-btn linkedin"
-											onClick={() =>
-												window.open(
-													`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(
-														routeUrl
-													)}`,
-													"_blank"
-												)
-											}
-										>
-											{__("LinkedIn", "mmd")}
-										</button>
-									</div>
+									{isSaved ? (
+										<div className="mmd-share-btns">
+											<button
+												className="social-btn"
+												onClick={() => navigator.clipboard.writeText(routeUrl)}
+											>
+												{__("Copy Route URL", "mmd")}
+											</button>
+											<button
+												className="social-btn"
+												onClick={() =>
+													window.open(
+														`https://www.messenger.com/t/?link=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("Messenger", "mmd")}
+											</button>
+											<button
+												className="social-btn whatsapp"
+												onClick={() =>
+													window.open(
+														`https://wa.me/?text=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("WhatsApp", "mmd")}
+											</button>
+											<button
+												className="social-btn telegram"
+												onClick={() =>
+													window.open(
+														`https://t.me/share/url?url=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("Telegram", "mmd")}
+											</button>
+											<button
+												className="social-btn facebook"
+												onClick={() =>
+													window.open(
+														`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("Facebook", "mmd")}
+											</button>
+											<button
+												className="social-btn xcom"
+												onClick={() =>
+													window.open(
+														`https://twitter.com/intent/tweet?url=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("X.com", "mmd")}
+											</button>
+											<button
+												className="social-btn instagram"
+												onClick={() =>
+													alert(
+														"Instagram does not support direct URL sharing from web. You might need to copy the URL manually."
+													)
+												}
+											>
+												{__("Instagram", "mmd")}
+											</button>
+											<button
+												className="social-btn linkedin"
+												onClick={() =>
+													window.open(
+														`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(
+															routeUrl
+														)}`,
+														"_blank"
+													)
+												}
+											>
+												{__("LinkedIn", "mmd")}
+											</button>
+										</div>
+									) : (
+										<div className="mmd-share-tosave">
+											<p>
+												{__("Please save the route before sharing.", "mmd")}
+											</p>
+											<button onClick={() => handleTabClick("save")}>
+												{__("Save Route", "mmd")}
+											</button>
+										</div>
+									)}
 								</div>
 							)}
 						</div>

@@ -1,72 +1,8 @@
 #mmd-root .mapboxgl-map {
 	position: absolute;
 }
-#mmd-root .mapboxgl-ctrl-attrib-inner,
-.mmd-toast button.Toastify__close-button {
+#mmd-root .mapboxgl-ctrl-attrib-inner {
 	display: none !important;
-}
-.mmd-loading-route {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	position: absolute;
-	background: rgb(0 0 0 / 20%);
-	top: 0;
-	left: 0;
-	right: 0;
-	bottom: 0;
-	z-index: 998;
-}
-.Toastify__toast.mmd-toast {
-	text-align: center;
-	font-size: 14px;
-	letter-spacing: 0.4px;
-	background-color: #3f4143;
-}
-.Toastify__toast.mmd-toast .Toastify__toast-body {
-	padding: 0;
-}
-/* -- MMD Loader -- */
-.mmd-loader {
-	position: relative;
-	display: flex;
-	justify-content: center;
-	align-items: center;
-	width: 80px;
-	height: 80px;
-	z-index: 2;
-}
-.mmd-loader * {
-	box-sizing: border-box;
-}
-.mmd-loader-sector {
-	border-radius: 50%;
-	position: absolute;
-	width: 100%;
-	height: 100%;
-	border: 3px solid #b1b5d52b;
-	mix-blend-mode: overlay;
-}
-
-.mmd-loader-sector-one {
-	animation: rotate 2s ease-out infinite;
-	border-top: 3px solid #2e9632;
-}
-.mmd-loader-sector-two {
-	animation: rotate 2.5s ease-in infinite;
-	border-top: 3px solid #2b2b2b;
-}
-.mmd-loader-sector-three {
-	animation: rotate 1.5s ease-in-out infinite;
-	border-top: 3px solid #6bd362;
-}
-@keyframes rotate {
-	from {
-		transform: rotate(0);
-	}
-	to {
-		transform: rotate(360deg);
-	}
 }
 /* -- MMD Box -- */
 .mmd-boxwrap {
@@ -318,6 +254,11 @@ button.mmd-popup-close:hover {
 	display: flex;
 	flex-direction: column;
 	gap: 15px;
+}
+.mmd-share-tosave {
+	text-align: center;
+	margin: 40px 0 15px;
+	font-size: 17px;
 }
 /* - Tags - */
 .tags-input {

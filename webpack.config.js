@@ -10,6 +10,8 @@ const isProduction = process.env.NODE_ENV === "production";
 const mmdConfig = {
 	mode: isProduction ? "production" : "development",
 	entry: {
+		frontend: "./src/frontend/frontend.js",
+		"frontend.min": "./src/frontend/frontend.js",
 		settings: "./src/settings.js",
 		"settings.min": "./src/settings.js",
 		admin: "./src/backend/admin/admin.js",

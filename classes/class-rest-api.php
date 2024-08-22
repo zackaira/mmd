@@ -33,10 +33,29 @@ class MapMyDistance_Rest_Routes {
 			'callback' => [$this, 'mmd_save_route'],
 			'permission_callback' => [$this, 'mmd_save_route_permission'],
 		]);
-		register_rest_route('mmd-api/v1', '/get-route/(?P<id>\d+)', [
+		register_rest_route('mmd-api/v1', '/get-route/(?P<id>[a-f0-9]{32})', [
 			'methods' => 'GET',
 			'callback' => [$this, 'mmd_get_route'],
 			'permission_callback' => [$this, 'mmd_get_settings_permission'],
+			'args' => [
+				'id' => [
+					'validate_callback' => function($param, $request, $key) {
+						return ctype_xdigit($param) && strlen($param) === 32;
+					}
+				],
+			],
+		]);
+		// New Route: Get All Routes by User ID
+		register_rest_route('mmd-api/v1', '/get-user-routes/(?P<user_id>\d+)', [
+			'methods' => 'GET',
+			'callback' => [$this, 'mmd_get_user_routes'],
+			'permission_callback' => [$this, 'mmd_save_route_permission'],
+		]);
+		// Delete Route from Database
+		register_rest_route('mmd-api/v1', '/delete-route/(?P<id>[a-f0-9]{32})', [
+			'methods' => 'DELETE',
+			'callback' => [$this, 'mmd_delete_route'],
+			'permission_callback' => [$this, 'mmd_save_route_permission'],
 		]);
 	}
 
@@ -111,9 +130,13 @@ class MapMyDistance_Rest_Routes {
 		$route_data = json_encode($params['routeData']);
 		$distance = floatval($params['distance']);
 	
+		// Generate a unique hash ID
+		$hash_id = $this->generate_unique_hash_id($user_id, $route_name);
+	
 		$result = $wpdb->insert(
 			$table_name,
 			[
+				'id' => $hash_id,
 				'user_id' => $user_id,
 				'route_name' => $route_name,
 				'route_description' => $route_description,
@@ -124,7 +147,7 @@ class MapMyDistance_Rest_Routes {
 				'distance' => $distance,
 			],
 			[
-				'%d', '%s', '%s', '%s', '%s', '%s', '%s', '%f'
+				'%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%f'
 			]
 		);
 	
@@ -135,32 +158,130 @@ class MapMyDistance_Rest_Routes {
 		return rest_ensure_response([
 			'success' => true,
 			'message' => 'Route saved successfully',
-			'route_id' => $wpdb->insert_id
+			'route_id' => $hash_id
 		]);
+	}
+	
+	/*
+	 * Generate a unique hash ID for the route
+	 */
+	private function generate_unique_hash_id($user_id, $route_name) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'mmd_map_routes';
+	
+		do {
+			$hash_id = md5(uniqid($user_id . $route_name, true));
+			$exists = $wpdb->get_var($wpdb->prepare(
+				"SELECT COUNT(*) FROM $table_name WHERE id = %s",
+				$hash_id
+			));
+		} while ($exists > 0);
+	
+		return $hash_id;
 	}
 
 	/*
 	 * GET User Route
 	 */
 	public function mmd_get_route($request) {
-		$route_id = $request['id'];
-		
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'mmd_map_routes';
-		
-		$route = $wpdb->get_row($wpdb->prepare(
-			"SELECT * FROM $table_name WHERE id = %d",
-			$route_id
-		), ARRAY_A);
 	
-		if (null === $route) {
-			return new WP_Error('no_route', 'Route not found', array('status' => 404));
+		$route_id = $request['id'];
+		
+		error_log("Fetching route with ID: " . $route_id);
+	
+		$route = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM $table_name WHERE id = %s",
+				$route_id
+			),
+			ARRAY_A
+		);
+	
+		if (!$route) {
+			error_log("No route found with ID: " . $route_id);
+			return new WP_Error('no_route', 'No route found with this ID', ['status' => 404]);
 		}
+	
+		error_log("Route found: " . print_r($route, true));
 	
 		// Decode the JSON stored in route_data
 		$route['route_data'] = json_decode($route['route_data'], true);
 	
-		return rest_ensure_response($route);
+		// Prepare the response in a consistent format
+		$response = [
+			'success' => true,
+			'route' => [
+				'id' => $route['id'],
+				'routeName' => $route['route_name'],
+				'description' => $route['route_description'],
+				'tags' => explode(',', $route['route_tags']),
+				'activity' => $route['route_activity'],
+				'fullDistance' => floatval($route['distance']),
+				'coordinates' => $route['route_data']['coordinates'] ?? [],
+				'linestring' => $route['route_data']['linestring'] ?? [],
+				'units' => $route['route_data']['units'] ?? 'km',
+				'bounds' => $route['route_data']['bounds'] ?? null,
+			],
+		];
+
+		// Check if the current user has permission to view this route
+		// Can make the route private or public with a check like this
+		// if (get_current_user_id() != $route['user_id']) {
+		// 	return new WP_Error('no_permission', 'You do not have permission to view this route', ['status' => 403]);
+		// }
+	
+		return rest_ensure_response($response);
+	}
+
+	/*
+	 * GET All User Routes
+	 */
+	public function mmd_get_user_routes($request) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'mmd_map_routes';
+	
+		$user_id = intval($request['user_id']);
+	
+		$routes = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM $table_name WHERE user_id = %d",
+				$user_id
+			),
+			ARRAY_A
+		);
+	
+		if (!$routes) {
+			return new WP_Error('no_routes', 'No routes found for this user', ['status' => 404]);
+		}
+	
+		// Decode the JSON stored in route_data for each route
+		foreach ($routes as &$route) {
+			$route['route_data'] = json_decode($route['route_data'], true);
+		}
+	
+		return rest_ensure_response([
+			'success' => true,
+			'routes' => $routes,
+		]);
+	}
+
+	/*
+	 * Delete a Route from the Database by RouteId
+	 */
+	function mmd_delete_route($request) {
+		global $wpdb;
+		$route_id = $request['id'];
+		$table_name = $wpdb->prefix . 'mmd_map_routes';
+	
+		$result = $wpdb->delete($table_name, ['id' => $route_id], ['%s']);
+	
+		if ($result === false) {
+			return new WP_Error('route_delete_failed', 'Failed to delete the route', ['status' => 500]);
+		}
+	
+		return rest_ensure_response(['success' => true, 'message' => 'Route deleted successfully']);
 	}
 }
 new MapMyDistance_Rest_Routes();

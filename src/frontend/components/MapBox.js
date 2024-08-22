@@ -10,6 +10,7 @@ import "react-toastify/dist/ReactToastify.css";
 import SearchPopup from "./SearchPopup";
 import SaveSharePopup from "./SaveSharePopup";
 import Loader from "../../Loader";
+import Cookies from "js-cookie";
 
 mapboxgl.accessToken =
 	"pk.eyJ1IjoiemFja2FpcmEiLCJhIjoiY2x6czFzcDlnMGk4eDJpczk0aGU1Zms0aiJ9.rtKaICIv9h1DOrpNupfRzw";
@@ -30,7 +31,6 @@ const convertDistance = (distance, fromUnit, toUnit) => {
 };
 
 const MapBox = ({ mmdObj }) => {
-	const userDetails = mmdObj?.userDetails || false;
 	const mapContainerRef = useRef(null);
 	const mapRef = useRef(null);
 	const geojsonRef = useRef({
@@ -49,6 +49,9 @@ const MapBox = ({ mmdObj }) => {
 	const [isRouteEditable, setIsRouteEditable] = useState(true);
 	const [isRouteClosed, setIsRouteClosed] = useState(false);
 
+	const [userDetails, setUserDetails] = useState(mmdObj?.userDetails || null);
+	const [isSaved, setIsSaved] = useState(false);
+
 	const [rawLastDistance, setRawLastDistance] = useState(0);
 	const [rawFullDistance, setRawFullDistance] = useState(0);
 	const [lastDistance, setLastDistance] = useState(0);
@@ -66,12 +69,38 @@ const MapBox = ({ mmdObj }) => {
 	const [snapToRoutes, setSnapToRoutes] = useState(true);
 	const [centerOnNewMarker, setCenterOnNewMarker] = useState(true);
 
-	// const [routeWithElevation, setRouteWithElevation] = useState([]);
-	// const [showElevationProfile, setShowElevationProfile] = useState(false);
+	const [mapInitialized, setMapInitialized] = useState(false);
+	const routeLoadingRef = useRef(false);
 
 	const [isSearchOpen, setIsSearchOpen] = useState(false);
 	const [isSaveShareOpen, setIsSaveShareOpen] = useState(false);
-	const [saveShareAction, setSaveShareAction] = useState("save");
+	const [saveShareAction, setSaveShareAction] = useState({
+		action: "save",
+		routeData: null,
+	});
+
+	useEffect(() => {
+		if (!mapInitialized) return;
+
+		const loadRouteFromCookie = () => {
+			const savedRoute = Cookies.get("mmd_saved_route");
+			if (savedRoute) {
+				try {
+					const routeData = JSON.parse(savedRoute);
+					loadSavedRoute(routeData, true);
+					Cookies.remove("mmd_saved_route");
+				} catch (error) {
+					console.error("Error loading saved route:", error);
+				}
+			}
+		};
+
+		if (mmdObj.routeId) {
+			loadSavedRoute(mmdObj.routeId, false);
+		} else if (userDetails) {
+			loadRouteFromCookie();
+		}
+	}, [mapInitialized, mmdObj.routeId, userDetails, loadSavedRoute]);
 
 	useEffect(() => {
 		const routeId = mmdObj.routeId;
@@ -80,56 +109,173 @@ const MapBox = ({ mmdObj }) => {
 		}
 	}, [mmdObj.routeId]);
 
-	const loadSavedRoute = async (routeId) => {
-		if (!routeId || isLoading) return;
+	const loadSavedRoute = useCallback(
+		(routeIdOrData, isFromCookie = false) => {
+			if (routeLoadingRef.current) return;
+			routeLoadingRef.current = true;
+			setIsLoading(true);
 
-		setIsRouteEditable(false);
-		setIsLoading(true);
+			const processRouteData = (routeData) => {
+				// Ensure coordinates and linestring are arrays, even if empty
+				const coordinates = Array.isArray(routeData.coordinates)
+					? routeData.coordinates
+					: [];
+				const linestring = Array.isArray(routeData.linestring)
+					? routeData.linestring
+					: [];
 
-		try {
-			const response = await fetch(
-				`${mmdObj.apiUrl}mmd-api/v1/get-route/${routeId}`,
-				{
-					headers: {
-						"X-WP-Nonce": mmdObj.nonce,
+				// Update geojsonRef with the loaded data
+				geojsonRef.current = {
+					type: "FeatureCollection",
+					features: [
+						...coordinates.map((coord, index) => ({
+							type: "Feature",
+							geometry: {
+								type: "Point",
+								coordinates: coord,
+							},
+							properties: {
+								markerNumber: index + 1,
+								// Add any other properties that might be used in styling
+								// Ensure they have default numeric values
+								size: 8,
+								color: [0, 0, 0, 1], // RGBA values
+							},
+						})),
+						{
+							type: "Feature",
+							geometry: {
+								type: "LineString",
+								coordinates: linestring,
+							},
+							properties: {
+								// Add any properties used in line styling
+								width: 2,
+								color: [0, 0, 0, 1], // RGBA values
+							},
+						},
+					],
+				};
+
+				// Update linestringRef
+				linestringRef.current = {
+					type: "Feature",
+					geometry: {
+						type: "LineString",
+						coordinates: linestring,
 					},
+					properties: {
+						// Add any properties used in line styling
+						width: 2,
+						color: [0, 0, 0, 1], // RGBA values
+					},
+				};
+
+				// Update state
+				setRawFullDistance(routeData.fullDistance || 0);
+				setUnits(routeData.units || "km");
+				setIsRouteEditable(isFromCookie);
+				setIsSaved(!isFromCookie);
+
+				// Update the map
+				if (mapRef.current && mapRef.current.getSource("geojson")) {
+					mapRef.current.getSource("geojson").setData(geojsonRef.current);
 				}
-			);
 
-			if (!response.ok) {
-				throw new Error("Failed to load route");
-			}
+				// Fit the map to the route bounds
+				if (
+					mapRef.current &&
+					routeData.bounds &&
+					Array.isArray(routeData.bounds) &&
+					routeData.bounds.length === 2
+				) {
+					mapRef.current.fitBounds(routeData.bounds, {
+						padding: { top: 50, bottom: 50, left: 50, right: 50 },
+						duration: 1000,
+					});
+				} else {
+					// If bounds are not available or invalid, fit to the linestring
+					if (linestring.length > 0) {
+						const bounds = new mapboxgl.LngLatBounds();
+						linestring.forEach((coord) => bounds.extend(coord));
+						mapRef.current.fitBounds(bounds, {
+							padding: { top: 50, bottom: 50, left: 50, right: 50 },
+							duration: 1000,
+						});
+					}
+				}
 
-			const routeData = await response.json();
-			if (routeData.route_data) {
-				const parsedRouteData =
-					typeof routeData.route_data === "string"
-						? JSON.parse(routeData.route_data)
-						: routeData.route_data;
+				// Recalculate distances
+				recalculateDistances();
 
-				updateMapWithRouteData(parsedRouteData);
-
-				// Remove the click event listener from the map
+				// Update click handlers
 				if (mapRef.current) {
-					mapRef.current.off("click", handleMapClick);
+					if (isFromCookie) {
+						mapRef.current.on("click", handleMapClick);
+					} else {
+						mapRef.current.off("click", handleMapClick);
+					}
 				}
 
-				toast.success("Route loaded successfully!", {
-					toastId: routeId,
-				});
+				toast.success(
+					isFromCookie
+						? __("Unsaved route loaded successfully!", "mmd")
+						: __("Saved route loaded successfully!", "mmd"),
+					{ toastId: "route-loaded" }
+				);
+
+				routeLoadingRef.current = false;
+				setIsLoading(false);
+			};
+
+			if (typeof routeIdOrData === "string" && !isFromCookie) {
+				// Fetch route data from the server
+				fetch(`${mmdObj.apiUrl}mmd-api/v1/get-route/${routeIdOrData}`, {
+					headers: { "X-WP-Nonce": mmdObj.nonce },
+				})
+					.then((response) => response.json())
+					.then((data) => {
+						if (data.success) {
+							processRouteData(data.route);
+						} else {
+							throw new Error(data.message || "Failed to load route");
+						}
+					})
+					.catch((error) => {
+						console.error("Error loading route:", error);
+						toast.error(__("Failed to load route. Please try again.", "mmd"));
+						routeLoadingRef.current = false;
+						setIsLoading(false);
+					});
+				// .finally(() => {
+				// 	routeLoadingRef.current = false;
+				// 	setIsLoading(false);
+				// 	setTimeout(() => zoomToBoundingBox(), 300);
+				// });
+			} else if (isFromCookie) {
+				processRouteData(routeIdOrData);
 			} else {
-				throw new Error("Route data not found");
+				console.error("Invalid route data or ID:", routeIdOrData);
+				toast.error(__("Invalid route data. Please try again.", "mmd"));
+				routeLoadingRef.current = false;
+				setIsLoading(false);
 			}
-		} catch (error) {
-			toast.error("Route not found or couldn't be loaded.", {
-				toastId: routeId,
-			});
-			window.history.pushState({}, "", "/mapmydistance/");
-		} finally {
-			setIsLoading(false);
-			setTimeout(() => forceZoomToBounds(), 400);
-		}
-	};
+		},
+		[mmdObj.apiUrl, mmdObj.nonce, handleMapClick, recalculateDistances]
+	);
+
+	const saveRouteToCookie = useCallback(() => {
+		const routeData = {
+			coordinates: geojsonRef.current.features
+				.filter((feature) => feature.geometry.type === "Point")
+				.map((feature) => feature.geometry.coordinates),
+			linestring: linestringRef.current.geometry.coordinates,
+			fullDistance: rawFullDistance,
+			units: units,
+			bounds: mapRef.current.getBounds().toArray(),
+		};
+		Cookies.set("mmd_saved_route", JSON.stringify(routeData), { expires: 1 }); // Expires in 1 day
+	}, [geojsonRef, linestringRef, rawFullDistance, units]);
 
 	const toggleRouteEditable = useCallback(() => {
 		setIsRouteEditable((prev) => {
@@ -151,82 +297,61 @@ const MapBox = ({ mmdObj }) => {
 		});
 	}, [handleMapClick]);
 
-	const updateMapWithRouteData = (routeData) => {
-		setIsRouteEditable(false);
+	const updateMapWithRouteData = useCallback(
+		(routeData) => {
+			setIsRouteEditable(false);
 
-		// Update geojsonRef and linestringRef
-		geojsonRef.current = {
-			type: "FeatureCollection",
-			features: [
-				...routeData.coordinates.map((coord, index) => ({
-					type: "Feature",
-					geometry: {
-						type: "Point",
-						coordinates: coord,
+			geojsonRef.current = {
+				type: "FeatureCollection",
+				features: [
+					...routeData.coordinates.map((coord, index) => ({
+						type: "Feature",
+						geometry: {
+							type: "Point",
+							coordinates: coord,
+						},
+						properties: {
+							markerNumber: index + 1,
+						},
+					})),
+					{
+						type: "Feature",
+						geometry: {
+							type: "LineString",
+							coordinates: routeData.linestring,
+						},
+						properties: {},
 					},
-					properties: {
-						markerNumber: index + 1,
-					},
-				})),
-				{
-					type: "Feature",
-					geometry: {
-						type: "LineString",
-						coordinates: routeData.linestring,
-					},
-					properties: {},
+				],
+			};
+
+			linestringRef.current = {
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: routeData.linestring,
 				},
-			],
-		};
+			};
 
-		linestringRef.current = {
-			type: "Feature",
-			geometry: {
-				type: "LineString",
-				coordinates: routeData.linestring,
-			},
-		};
+			setRawFullDistance(routeData.fullDistance);
+			setUnits(routeData.units);
 
-		// Set the distance and units
-		setRawFullDistance(routeData.fullDistance);
-		setUnits(routeData.units);
+			if (routeData.coordinates.length > 0) {
+				setLatestLatLng(
+					routeData.coordinates[routeData.coordinates.length - 1]
+				);
+			}
 
-		// Update latest lat/lng
-		if (routeData.coordinates.length > 0) {
-			setLatestLatLng(routeData.coordinates[routeData.coordinates.length - 1]);
-		}
+			recalculateDistances();
 
-		// Recalculate distances
-		recalculateDistances();
-
-		// Function to update map and zoom to bounds
-		const updateMapAndZoom = () => {
 			if (mapRef.current && mapRef.current.getSource("geojson")) {
 				mapRef.current.getSource("geojson").setData(geojsonRef.current);
-
-				if (routeData.bounds && routeData.bounds.length === 2) {
-					const [sw, ne] = routeData.bounds;
-					mapRef.current.fitBounds([sw, ne], {
-						padding: { top: 50, bottom: 50, left: 50, right: 50 },
-						duration: 1000,
-						maxZoom: 15,
-					});
-				} else {
-					forceZoomToBounds();
-				}
-			} else {
-				setTimeout(updateMapAndZoom, 100);
 			}
-		};
+		},
+		[recalculateDistances]
+	);
 
-		if (mapRef.current && mapRef.current.loaded()) {
-			updateMapAndZoom();
-		} else if (mapRef.current) {
-			mapRef.current.once("load", updateMapAndZoom);
-		}
-	};
-
-	const forceZoomToBounds = () => {
+	const forceZoomToBounds = useCallback(() => {
 		if (
 			mapRef.current &&
 			linestringRef.current.geometry.coordinates.length > 1
@@ -242,7 +367,7 @@ const MapBox = ({ mmdObj }) => {
 				maxZoom: 15,
 			});
 		}
-	};
+	}, []);
 
 	const handleToggleSearch = useCallback(() => {
 		setIsSearchOpen((prev) => !prev);
@@ -250,24 +375,41 @@ const MapBox = ({ mmdObj }) => {
 
 	const handleToggleSaveShare = useCallback(
 		(action) => {
-			if (action === "save") {
-				const routeData = {
-					coordinates: geojsonRef.current.features
-						.filter((feature) => feature.geometry.type === "Point")
-						.map((feature) => feature.geometry.coordinates),
-					linestring: linestringRef.current.geometry.coordinates,
-					fullDistance: rawFullDistance, // Use the raw distance in km
-					units: units,
-					bounds: mapRef.current.getBounds().toArray(),
-				};
-				setIsSaveShareOpen(true);
+			if (!userDetails) {
+				saveRouteToCookie();
+				showLoginRegisterToast();
+				return;
+			}
+
+			const routeData = {
+				coordinates: geojsonRef.current.features
+					.filter((feature) => feature.geometry.type === "Point")
+					.map((feature) => feature.geometry.coordinates),
+				linestring: linestringRef.current.geometry.coordinates,
+				fullDistance: rawFullDistance,
+				units: units,
+				bounds: mapRef.current.getBounds().toArray(),
+			};
+
+			if (action === "save" || (action === "share" && isSaved)) {
 				setSaveShareAction({ action, routeData });
-			} else {
-				setIsSaveShareOpen((prev) => !prev);
-				setSaveShareAction({ action, routeData: null });
+				setIsSaveShareOpen(true);
+			} else if (action === "share" && !isSaved) {
+				toast.info(__("Please save the route before sharing.", "mmd"));
+				setSaveShareAction({ action: "save", routeData });
+				setIsSaveShareOpen(true);
 			}
 		},
-		[geojsonRef, linestringRef, rawFullDistance, units]
+		[
+			geojsonRef,
+			linestringRef,
+			rawFullDistance,
+			units,
+			userDetails,
+			isSaved,
+			saveRouteToCookie,
+			showLoginRegisterToast,
+		]
 	);
 
 	const saveState = useCallback(() => {
@@ -376,10 +518,10 @@ const MapBox = ({ mmdObj }) => {
 					"line-join": "round",
 				},
 				paint: {
-					"line-color": "#000",
-					"line-width": 2,
+					"line-color": ["coalesce", ["get", "color"], "#000000"],
+					"line-width": ["coalesce", ["get", "width"], 2],
 				},
-				filter: ["in", "$type", "LineString"],
+				filter: ["==", "$type", "LineString"],
 			});
 
 			map.addLayer({
@@ -387,22 +529,22 @@ const MapBox = ({ mmdObj }) => {
 				type: "circle",
 				source: "geojson",
 				paint: {
-					"circle-radius": 8,
+					"circle-radius": ["coalesce", ["get", "size"], 8],
 					"circle-color": [
 						"case",
 						[
 							"all",
 							["==", ["get", "markerNumber"], 1],
 							["==", ["to-boolean", ["get", "isRouteClosed"]], false],
-							[">=", ["get", "totalMarkers"], 2], // New line: Check if there are 2 or more markers
+							[">=", ["coalesce", ["get", "totalMarkers"], 0], 2],
 						],
-						"#2e9632", // Green color for clickable first marker
+						"#2e9632",
 						["==", ["get", "markerNumber"], 1],
-						"#000000", // Grey color for non-clickable first marker (changed from "#FF0000")
-						"#000000", // Black color for other markers
+						"#000000",
+						"#000000",
 					],
 				},
-				filter: ["in", "$type", "Point"],
+				filter: ["==", "$type", "Point"],
 			});
 
 			map.addLayer({
@@ -410,7 +552,7 @@ const MapBox = ({ mmdObj }) => {
 				type: "symbol",
 				source: "geojson",
 				layout: {
-					"text-field": ["get", "markerNumber"],
+					"text-field": ["coalesce", ["get", "markerNumber"], ""],
 					"text-font": ["Open Sans Bold"],
 					"text-size": 9,
 					"text-allow-overlap": true,
@@ -418,7 +560,7 @@ const MapBox = ({ mmdObj }) => {
 				paint: {
 					"text-color": "#ffffff",
 				},
-				filter: ["in", "$type", "Point"],
+				filter: ["==", "$type", "Point"],
 			});
 
 			if (isRouteEditable) {
@@ -433,10 +575,12 @@ const MapBox = ({ mmdObj }) => {
 					? "pointer"
 					: "crosshair";
 			});
+
+			setMapInitialized(true);
 		});
 
 		return () => map.remove();
-	}, [userLocation, handleMapClick, mmdObj.routeId]);
+	}, [userLocation]);
 
 	const handleMapClick = useCallback(
 		async (e) => {
@@ -473,13 +617,28 @@ const MapBox = ({ mmdObj }) => {
 			} else if (!features.length) {
 				// Adding a new point
 				await updateRoute(newPoint, false);
+
+				if (!userDetails) {
+					saveRouteToCookie(); // Save route to cookie after each change
+					if (markerCount === 1) {
+						showLoginRegisterToast();
+					}
+				}
 			}
 
 			// Update the map
 			map.getSource("geojson").setData(geojsonRef.current);
 			setLatestLatLng(newPoint);
 		},
-		[isRouteEditable, saveState, updateRoute, isRouteClosed]
+		[
+			isRouteEditable,
+			saveState,
+			updateRoute,
+			isRouteClosed,
+			showLoginRegisterToast,
+			saveRouteToCookie,
+			userDetails,
+		]
 	);
 
 	const updateRoute = useCallback(
@@ -806,6 +965,29 @@ const MapBox = ({ mmdObj }) => {
 		handleToggleSaveShare("save");
 	};
 
+	const showLoginRegisterToast = useCallback(() => {
+		toast.info(
+			<div>
+				{__(
+					"You need to login to Save and Share routes. We'll save your route for when you come back here.",
+					"mmd"
+				)}
+				<br />
+				<a href={`${mmdObj.siteUrl}/account/?user=login`}>
+					{__("Login", "mmd")}
+				</a>
+				{" | "}
+				<a href={`${mmdObj.siteUrl}/account/?user=register`}>
+					{__("Register", "mmd")}
+				</a>
+			</div>,
+			{
+				autoClose: 10000,
+				toastId: "login-register-toast",
+			}
+		);
+	}, [mmdObj.siteUrl]);
+
 	return (
 		<>
 			<MapBoxControls
@@ -831,6 +1013,8 @@ const MapBox = ({ mmdObj }) => {
 				onSnapToggle={handleSnapToggle}
 				onToggleSearch={handleToggleSearch}
 				onToggleSaveShare={handleToggleSaveShare}
+				// isLoggedIn={!!userDetails}
+				isSaved={isSaved}
 			/>
 			<SearchPopup
 				mapRef={mapRef}
@@ -843,9 +1027,11 @@ const MapBox = ({ mmdObj }) => {
 				isOpen={isSaveShareOpen}
 				onClose={() => setIsSaveShareOpen(false)}
 				userDetails={userDetails}
-				action={saveShareAction}
+				action={saveShareAction.action}
 				routeData={saveShareAction.routeData}
 				distance={rawFullDistance}
+				onSaveSuccess={() => setIsSaved(true)}
+				isSaved={isSaved}
 			/>
 			<ToastContainer
 				position="bottom-center"
@@ -854,12 +1040,12 @@ const MapBox = ({ mmdObj }) => {
 				theme="dark"
 				hideProgressBar={true}
 				toastClassName="mmd-toast"
-				closeButton={false}
-				closeOnClick={true}
+				closeButton={true}
+				closeOnClick={false}
 			/>
 			{isLoading && (
 				<div className="mmd-loading-route">
-					<Loader />
+					<Loader hasBg={true} />
 				</div>
 			)}
 			<div

@@ -23,8 +23,8 @@ const MapBoxControls = ({
 	onToggleCenterOnNewMarker,
 	onToggleSearch,
 	onToggleSaveShare,
-	onToggleElevationProfile,
-	showElevationProfile,
+	isLoggedIn,
+	isSaved,
 }) => {
 	return (
 		<div className="mmd-boxwrap">
@@ -117,13 +117,13 @@ const MapBoxControls = ({
 						onClick={onToggleSearch}
 						title={__("Search Location", "mmd")}
 					></div>
-					<div
+					{/* <div
 						className={`fa-solid fa-mountain-sun mmd-control elevation ${
 							showElevationProfile ? "active" : ""
 						}`}
 						onClick={onToggleElevationProfile}
 						title={__("Route Elevation", "mmd")}
-					></div>
+					></div> */}
 
 					<div
 						className={`fa-solid fa-trash-can mmd-control clear ${
