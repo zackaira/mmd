@@ -3,6 +3,7 @@ import { __ } from "@wordpress/i18n";
 
 const MapBoxControls = ({
 	isRouteEditable,
+	allowRouteEditing,
 	onToggleEditable,
 	lastDistance,
 	fullDistance,
@@ -66,11 +67,13 @@ const MapBoxControls = ({
 			</div>
 			{!isRouteEditable && (
 				<div className="mmd-controls">
-					<div
-						className="fa-solid fa-edit mmd-control edit"
-						onClick={onToggleEditable}
-						title={__("Make Route Editable", "mmd")}
-					></div>
+					{allowRouteEditing && (
+						<div
+							className="fa-solid fa-edit mmd-control edit"
+							onClick={onToggleEditable}
+							title={__("Make Route Editable", "mmd")}
+						></div>
+					)}
 					<div
 						className={`fa-solid fa-expand mmd-control zoom-to-bounds ${
 							canZoomToBounds ? "" : "disabled"

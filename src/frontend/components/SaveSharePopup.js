@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { __ } from "@wordpress/i18n";
 import { toast } from "react-toastify";
+import ShareButtons from "./ShareButtons";
 import Loader from "../../Loader";
+import SaveEditForm from "./SaveEditForm";
 
 const SaveSharePopup = ({
 	mmdObj,
@@ -13,6 +15,8 @@ const SaveSharePopup = ({
 	distance,
 	onSaveSuccess,
 	isSaved,
+	allowRouteEditing,
+	setAllowRouteEditing,
 }) => {
 	const [activeTab, setActiveTab] = useState(action);
 	const [routeName, setRouteName] = useState("");
@@ -21,8 +25,9 @@ const SaveSharePopup = ({
 	const [activity, setActivity] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [routeUrl, setRouteUrl] = useState("");
-	const scrollableRef = useRef(null); // To Scroll the box back to top after save
+	const scrollableRef = useRef(null);
 	const [hasSavedRoute, setHasSavedRoute] = useState(false);
+	const [isEditable, setIsEditable] = useState(false);
 
 	const activities = userDetails?.activities || [];
 
@@ -36,14 +41,15 @@ const SaveSharePopup = ({
 			setDescription("");
 			setTags([]);
 			setActivity("");
+			setIsEditable(false);
+			setAllowRouteEditing(false);
 
 			if (hasSavedRoute) {
 				setActiveTab("share");
-				// Scroll to top
 				if (scrollableRef.current) {
 					scrollableRef.current.scrollTop = 0;
 				}
-				setHasSavedRoute(false); // Reset the flag
+				setHasSavedRoute(false);
 			} else {
 				setActiveTab(action);
 			}
@@ -78,7 +84,10 @@ const SaveSharePopup = ({
 					description,
 					tags,
 					activity,
-					routeData,
+					routeData: {
+						...routeData,
+						allowRouteEditing, // Include allowRouteEditing in the routeData
+					},
 					distance,
 				}),
 			});
@@ -89,11 +98,21 @@ const SaveSharePopup = ({
 
 			const data = await response.json();
 
-			onSaveSuccess();
+			console.log("Saving allowRouteEditing:", allowRouteEditing);
+
+			onSaveSuccess({
+				...data,
+				allowRouteEditing, // Pass allowRouteEditing back to the parent component
+			});
 			setIsLoading(false);
 			setRouteUrl(`${mmdObj.siteUrl}/?route=${data.route_id}`);
+			setHasSavedRoute(true);
 			setActiveTab("share");
-			setHasSavedRoute(true); // Set this to true after successful save
+
+			// Scroll to top of the popup
+			if (scrollableRef.current) {
+				scrollableRef.current.scrollTop = 0;
+			}
 
 			toast.success(__("Route saved successfully!", "mmd"));
 		} catch (error) {
@@ -144,99 +163,21 @@ const SaveSharePopup = ({
 							</ul>
 							<div className="mmd-contents">
 								{activeTab === "save" && (
-									<div className="content save">
-										<h3>{__("Save Your Route:", "mmd")}</h3>
-										<p>
-											{__(
-												"Save your route to track progress, revisit favorite trails, and easily plan future adventures. It's a simple way to keep your experiences organized and ready for your next challenge.",
-												"mmd"
-											)}
-										</p>
-										<form onSubmit={saveRoute}>
-											<div className="mmd-form-row">
-												<label>
-													{__("Route Name", "mmd")}
-													<span className="required">*</span>
-												</label>
-												<input
-													type="text"
-													value={routeName}
-													onChange={(e) => setRouteName(e.target.value)}
-													required
-												/>
-											</div>
-											<div className="mmd-form-row">
-												<label>
-													{__("Description", "mmd")}
-													<span className="required">*</span>
-												</label>
-												<textarea
-													value={description}
-													onChange={(e) => setDescription(e.target.value)}
-													rows={4}
-													required
-												></textarea>
-											</div>
-											<div className="mmd-form-row">
-												<label>
-													{__(
-														"Tags (optional - to help you find routes again, when there are lots)",
-														"mmd"
-													)}
-												</label>
-												<div className="tags-input">
-													<div className="tags-list">
-														{tags.map((tag, index) => (
-															<span key={index} className="tag">
-																{tag}
-																<span
-																	className="tag-close"
-																	onClick={() => removeTag(index)}
-																>
-																	&times;
-																</span>
-															</span>
-														))}
-													</div>
-													<input
-														type="text"
-														onKeyDown={handleTagKeyDown}
-														placeholder={__(
-															"Add a tag and press enter or comma",
-															"mmd"
-														)}
-													/>
-												</div>
-											</div>
-											{activities && activities.length > 0 && (
-												<div className="mmd-form-row">
-													<label>
-														{__("What is the route used for?", "mmd")}
-													</label>
-													<div className="radio-group">
-														{activities.map((activityOption) => (
-															<label
-																htmlFor={activityOption}
-																key={activityOption}
-																className="radio-item"
-															>
-																<input
-																	type="radio"
-																	id={activityOption}
-																	name="activity"
-																	value={activityOption}
-																	checked={activity === activityOption}
-																	onChange={(e) => setActivity(e.target.value)}
-																/>
-																{activityOption.replace("_", " ")}
-															</label>
-														))}
-													</div>
-												</div>
-											)}
-											<button type="submit">{__("Save Route", "mmd")}</button>
-										</form>
-									</div>
+									<SaveEditForm
+										routeName={routeName}
+										setRouteName={setRouteName}
+										description={description}
+										setDescription={setDescription}
+										tags={tags}
+										activity={activity}
+										setActivity={setActivity}
+										activities={activities}
+										handleTagKeyDown={handleTagKeyDown}
+										removeTag={removeTag}
+										onSubmit={saveRoute}
+										allowRouteEditing={allowRouteEditing}
+										setAllowRouteEditing={setAllowRouteEditing}
+									/>
 								)}
 								{activeTab === "share" && (
 									<div className="content share">
@@ -248,107 +189,7 @@ const SaveSharePopup = ({
 											)}
 										</p>
 										{isSaved ? (
-											<div className="mmd-share-btns">
-												<button
-													className="social-btn"
-													onClick={() => {
-														navigator.clipboard.writeText(routeUrl);
-														toast.success(
-															__("Route Saved to Clipboard!", "mmd")
-														);
-													}}
-												>
-													{__("Copy Route URL", "mmd")}
-												</button>
-												<button
-													className="social-btn"
-													onClick={() =>
-														window.open(
-															`https://www.messenger.com/t/?link=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("Messenger", "mmd")}
-												</button>
-												<button
-													className="social-btn whatsapp"
-													onClick={() =>
-														window.open(
-															`https://wa.me/?text=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("WhatsApp", "mmd")}
-												</button>
-												<button
-													className="social-btn telegram"
-													onClick={() =>
-														window.open(
-															`https://t.me/share/url?url=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("Telegram", "mmd")}
-												</button>
-												<button
-													className="social-btn facebook"
-													onClick={() =>
-														window.open(
-															`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("Facebook", "mmd")}
-												</button>
-												<button
-													className="social-btn xcom"
-													onClick={() =>
-														window.open(
-															`https://twitter.com/intent/tweet?url=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("X.com", "mmd")}
-												</button>
-												<button
-													className="social-btn instagram"
-													onClick={() =>
-														alert(
-															"Instagram does not support direct URL sharing from web. You might need to copy the URL manually."
-														)
-													}
-												>
-													{__("Instagram", "mmd")}
-												</button>
-												<button
-													className="social-btn linkedin"
-													onClick={() =>
-														window.open(
-															`https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(
-																routeUrl
-															)}`,
-															"_blank"
-														)
-													}
-												>
-													{__("LinkedIn", "mmd")}
-												</button>
-											</div>
+											<ShareButtons routeUrl={routeUrl} />
 										) : (
 											<div className="mmd-share-tosave">
 												<p>

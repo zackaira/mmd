@@ -68,8 +68,8 @@ class MapMyDistance {
 		wp_register_script('mmd-map-script', esc_url(MMD_PLUGIN_URL . 'dist/mmd' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
 
 		// MMD User Account Routes Page
-		wp_register_style('mmd-user-routes-style', esc_url(MMD_PLUGIN_URL . 'dist/user-routes' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
-		wp_register_script('mmd-user-routes-script', esc_url(MMD_PLUGIN_URL . 'dist/user-routes' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
+		wp_register_style('mmd-user-account-style', esc_url(MMD_PLUGIN_URL . 'dist/user-account' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
+		wp_register_script('mmd-user-account-script', esc_url(MMD_PLUGIN_URL . 'dist/user-account' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
 
 		// Settings JS
 		wp_register_style('mmd-admin-settings-style', esc_url(MMD_PLUGIN_URL . 'dist/settings' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
@@ -109,6 +109,7 @@ class MapMyDistance {
 				'last_name'  => get_user_meta( $user_id, 'billing_last_name', true ),
 				'country'    => get_user_meta( $user_id, 'billing_country', true ),
 				'activities' => get_user_meta( $user_id, 'activities', true ),
+				'units'      => get_user_meta( $user_id, 'units', true ),
 			);
 		} else {
 			$user_details = false;
@@ -130,10 +131,10 @@ class MapMyDistance {
 		}
 
 		// User Account - Routes Page
-		if (is_account_page() && strpos($current_url, '/account/routes/') !== false) {
-			wp_enqueue_style('mmd-user-routes-style');
-			wp_enqueue_script('mmd-user-routes-script');
-			wp_localize_script('mmd-user-routes-script', 'mmdRoutesObj', array(
+		if ( is_account_page() ) {
+			wp_enqueue_style('mmd-user-account-style');
+			wp_enqueue_script('mmd-user-account-script');
+			wp_localize_script('mmd-user-account-script', 'mmdAccountObj', array(
 				'siteUrl' => esc_url(home_url()),
 				'apiUrl' => esc_url(get_rest_url()),
 				'nonce' => wp_create_nonce('wp_rest'),

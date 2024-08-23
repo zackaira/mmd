@@ -48,6 +48,7 @@ const MapBox = ({ mmdObj }) => {
 	const [isLoading, setIsLoading] = useState(false);
 	const [isRouteEditable, setIsRouteEditable] = useState(true);
 	const [isRouteClosed, setIsRouteClosed] = useState(false);
+	const [allowRouteEditing, setAllowRouteEditing] = useState(false);
 
 	const [userDetails, setUserDetails] = useState(mmdObj?.userDetails || null);
 	const [isSaved, setIsSaved] = useState(false);
@@ -56,7 +57,7 @@ const MapBox = ({ mmdObj }) => {
 	const [rawFullDistance, setRawFullDistance] = useState(0);
 	const [lastDistance, setLastDistance] = useState(0);
 	const [fullDistance, setFullDistance] = useState(0);
-	const [units, setUnits] = useState("km");
+	const [units, setUnits] = useState(mmdObj?.userDetails?.units || "km");
 	const [latestLatLng, setLatestLatLng] = useState(null);
 	const [userLocation, setUserLocation] = useState(null);
 	const historyRef = useRef([]);
@@ -136,8 +137,6 @@ const MapBox = ({ mmdObj }) => {
 							},
 							properties: {
 								markerNumber: index + 1,
-								// Add any other properties that might be used in styling
-								// Ensure they have default numeric values
 								size: 8,
 								color: [0, 0, 0, 1], // RGBA values
 							},
@@ -149,7 +148,6 @@ const MapBox = ({ mmdObj }) => {
 								coordinates: linestring,
 							},
 							properties: {
-								// Add any properties used in line styling
 								width: 2,
 								color: [0, 0, 0, 1], // RGBA values
 							},
@@ -165,16 +163,24 @@ const MapBox = ({ mmdObj }) => {
 						coordinates: linestring,
 					},
 					properties: {
-						// Add any properties used in line styling
 						width: 2,
 						color: [0, 0, 0, 1], // RGBA values
 					},
 				};
 
+				const newAllowRouteEditing = isFromCookie
+					? true
+					: routeData.allowRouteEditing ?? false;
+				console.log("Setting allowRouteEditing to:", newAllowRouteEditing);
+				setAllowRouteEditing(newAllowRouteEditing);
+
+				const newIsRouteEditable = isFromCookie ? true : false;
+				console.log("Setting isRouteEditable to:", newIsRouteEditable);
+				setIsRouteEditable(newIsRouteEditable);
+
 				// Update state
 				setRawFullDistance(routeData.fullDistance || 0);
 				setUnits(routeData.units || "km");
-				setIsRouteEditable(isFromCookie);
 				setIsSaved(!isFromCookie);
 
 				// Update the map
@@ -278,24 +284,36 @@ const MapBox = ({ mmdObj }) => {
 	}, [geojsonRef, linestringRef, rawFullDistance, units]);
 
 	const toggleRouteEditable = useCallback(() => {
-		setIsRouteEditable((prev) => {
-			const newValue = !prev;
-			if (newValue) {
-				mapRef.current?.on("click", handleMapClick);
-			} else {
-				mapRef.current?.off("click", handleMapClick);
-			}
-			toast.success(
-				newValue
-					? __("Route is now editable.", "mmd")
-					: __("Route is no longer editable.", "mmd"),
-				{
-					toastId: "route-editable",
+		console.log(
+			"toggleRouteEditable called - current allowRouteEditing:",
+			allowRouteEditing
+		);
+		if (allowRouteEditing) {
+			setIsRouteEditable((prev) => {
+				const newValue = !prev;
+				console.log("toggleRouteEditable - new isRouteEditable:", newValue);
+				if (newValue) {
+					mapRef.current?.on("click", handleMapClick);
+				} else {
+					mapRef.current?.off("click", handleMapClick);
 				}
-			);
-			return newValue;
-		});
-	}, [handleMapClick]);
+				toast.success(
+					newValue
+						? __("Route is now editable.", "mmd")
+						: __("Route is no longer editable.", "mmd"),
+					{
+						toastId: "route-editable",
+					}
+				);
+				return newValue;
+			});
+		} else {
+			console.log("toggleRouteEditable - route is not allowed to be edited");
+			toast.error(__("This route is not editable.", "mmd"), {
+				toastId: "route-not-editable",
+			});
+		}
+	}, [allowRouteEditing, handleMapClick]);
 
 	const updateMapWithRouteData = useCallback(
 		(routeData) => {
@@ -389,6 +407,7 @@ const MapBox = ({ mmdObj }) => {
 				fullDistance: rawFullDistance,
 				units: units,
 				bounds: mapRef.current.getBounds().toArray(),
+				allowRouteEditing: allowRouteEditing,
 			};
 
 			setSaveShareAction({ action, routeData });
@@ -958,7 +977,8 @@ const MapBox = ({ mmdObj }) => {
 			linestring: linestringRef.current.geometry.coordinates,
 			fullDistance: rawFullDistance, // Use the raw distance in km
 			units: units,
-			bounds: mapRef.current.getBounds().toArray(), // This can be useful for initial view when loading
+			bounds: mapRef.current.getBounds().toArray(),
+			allowRouteEditing: allowRouteEditing,
 		};
 
 		// Now you can pass this routeData to your SaveSharePopup component
@@ -966,8 +986,11 @@ const MapBox = ({ mmdObj }) => {
 		handleToggleSaveShare("save");
 	};
 
-	const handleSaveSuccess = useCallback(() => {
+	const handleSaveSuccess = useCallback((savedRouteData) => {
 		setIsSaved(true);
+		// Update allowRouteEditing based on the saved data
+		const newAllowRouteEditing = savedRouteData.allowRouteEditing || false;
+		setAllowRouteEditing(newAllowRouteEditing);
 	}, []);
 
 	const showLoginRegisterToast = useCallback(() => {
@@ -997,6 +1020,7 @@ const MapBox = ({ mmdObj }) => {
 		<>
 			<MapBoxControls
 				isRouteEditable={isRouteEditable}
+				allowRouteEditing={allowRouteEditing}
 				onToggleEditable={toggleRouteEditable}
 				lastDistance={lastDistance.toFixed(2)}
 				fullDistance={fullDistance.toFixed(2)}
@@ -1037,6 +1061,8 @@ const MapBox = ({ mmdObj }) => {
 				distance={rawFullDistance}
 				onSaveSuccess={handleSaveSuccess}
 				isSaved={isSaved}
+				allowRouteEditing={allowRouteEditing}
+				setAllowRouteEditing={setAllowRouteEditing}
 			/>
 			<ToastContainer
 				position="bottom-center"

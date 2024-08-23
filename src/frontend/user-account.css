@@ -99,3 +99,74 @@
 	font-size: 13px;
 	color: #444;
 }
+
+/* -- User Profile Picture -- */
+#mmd-profile-picture {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	margin: 10px 0 20px;
+}
+.mmd-pp-placeholder {
+	border: 2px solid #bebebe;
+	box-shadow: 0 1px 12px rgb(0 0 0 / 18%);
+	background-color: #555;
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	color: #fff;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	font-size: 52px;
+	text-align: center;
+}
+#mmd-pp-upload {
+	display: none !important;
+}
+/* -- Toggle Switch -- */
+.toggle-switch {
+	position: relative;
+	display: inline-block;
+	width: 40px;
+	height: 24px;
+	margin: 0 0 0 15px;
+}
+.toggle-switch input.toggle-switch-checkbox {
+	opacity: 0;
+	width: 0;
+	height: 0;
+}
+.toggle-switch-slider {
+	border-radius: 34px;
+	position: absolute;
+	cursor: pointer;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-color: #ccc;
+	transition: all 0.18s ease-in-out 0s;
+}
+.toggle-switch-slider:before {
+	border-radius: 34px;
+	position: absolute;
+	content: "";
+	height: 18px;
+	width: 18px;
+	left: 3px;
+	bottom: 3px;
+	background-color: white;
+	transition: all 0.18s ease-in-out 0s;
+}
+.toggle-switch input.toggle-switch-checkbox:checked + .toggle-switch-slider {
+	background-color: #6ab139;
+}
+.toggle-switch input.toggle-switch-checkbox:focus + .toggle-switch-slider {
+	box-shadow: 0 0 1px #6ab139;
+}
+.toggle-switch
+	input.toggle-switch-checkbox:checked
+	+ .toggle-switch-slider:before {
+	transform: translateX(16px);
+}

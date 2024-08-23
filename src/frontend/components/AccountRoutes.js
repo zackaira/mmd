@@ -3,6 +3,7 @@ import { __ } from "@wordpress/i18n";
 import Loader from "../../Loader";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import EditRoutePopup from "./EditRoutePopup";
 
 const AccountRoutes = ({ mmdObj }) => {
 	const apiUrl = mmdObj.apiUrl;
@@ -13,6 +14,7 @@ const AccountRoutes = ({ mmdObj }) => {
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalPages, setTotalPages] = useState(0);
 	const routesPerPage = 2;
+	const [editingRoute, setEditingRoute] = useState(null);
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -143,6 +145,49 @@ const AccountRoutes = ({ mmdObj }) => {
 		}
 	};
 
+	const handleEditRoute = (route) => {
+		setEditingRoute(route);
+	};
+
+	const handleSaveEditedRoute = async (updatedRoute) => {
+		try {
+			const response = await fetch(
+				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.id}`,
+				{
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+						"X-WP-Nonce": mmdObj.nonce,
+					},
+					body: JSON.stringify({
+						...updatedRoute,
+						user_id: userDetails.user_id,
+					}),
+				}
+			);
+			const data = await response.json();
+
+			if (data.success) {
+				toast.success(__("Route updated successfully!", "mmd"));
+				setSavedRoutes(
+					savedRoutes.map((route) =>
+						route.id === updatedRoute.id ? { ...route, ...data.route } : route
+					)
+				);
+			} else {
+				toast.error(__("Failed to update route. Please try again!", "mmd"));
+			}
+		} catch (error) {
+			toast.error(
+				__(
+					"An error occurred while updating the route. Please try again!",
+					"mmd"
+				)
+			);
+			console.error("Failed to update route:", error);
+		}
+	};
+
 	return (
 		<div className="mmd-routes">
 			<h3>{__("Saved Routes", "mmd")}</h3>
@@ -198,7 +243,7 @@ const AccountRoutes = ({ mmdObj }) => {
 											></span>
 											<span
 												className="fa-solid fa-edit mmd-route-icon edit"
-												onClick={() => {}}
+												onClick={() => handleEditRoute(route)}
 												title={__("Edit This Route", "mmd")}
 											></span>
 											<span
@@ -244,6 +289,15 @@ const AccountRoutes = ({ mmdObj }) => {
 					)}
 				</>
 			)}
+
+			<EditRoutePopup
+				isOpen={!!editingRoute}
+				onClose={() => setEditingRoute(null)}
+				route={editingRoute || {}}
+				onSave={handleSaveEditedRoute}
+				mmdObj={mmdObj}
+			/>
+
 			<ToastContainer
 				position="bottom-center"
 				autoClose={4000}

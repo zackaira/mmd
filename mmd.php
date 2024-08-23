@@ -16,7 +16,7 @@
 defined( 'ABSPATH' ) || exit;
 
 if ( !defined( 'MMD_PLUGIN_VERSION' ) ) {
-	define('MMD_PLUGIN_VERSION', '1.0.0');
+	define('MMD_PLUGIN_VERSION', '1.0.1');
 }
 if ( !defined( 'MMD_PLUGIN_URL' ) ) {
 	define('MMD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
