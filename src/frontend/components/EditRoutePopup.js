@@ -1,8 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
 import SaveEditForm from "./SaveEditForm";
+import Loader from "../../Loader";
 
-const EditRoutePopup = ({ isOpen, onClose, route, onSave, mmdObj }) => {
+const EditRoutePopup = ({
+	isOpen,
+	onClose,
+	route,
+	onSave,
+	mmdObj,
+	isSaving,
+}) => {
 	const [routeName, setRouteName] = useState("");
 	const [description, setDescription] = useState("");
 	const [tags, setTags] = useState([]);
@@ -15,7 +23,7 @@ const EditRoutePopup = ({ isOpen, onClose, route, onSave, mmdObj }) => {
 			setDescription(route.route_description || "");
 			setTags(route.route_tags ? route.route_tags.split(",") : []);
 			setActivity(route.route_activity || "");
-			setAllowRouteEditing(route.allow_route_editing || false);
+			setAllowRouteEditing(route.allowRouteEditing || false);
 		}
 	}, [isOpen, route]);
 
@@ -27,7 +35,7 @@ const EditRoutePopup = ({ isOpen, onClose, route, onSave, mmdObj }) => {
 			route_description: description,
 			route_tags: tags.join(","),
 			route_activity: activity,
-			allow_route_editing: allowRouteEditing,
+			allowRouteEditing: allowRouteEditing,
 		};
 		await onSave(updatedRoute);
 		onClose();
@@ -51,24 +59,31 @@ const EditRoutePopup = ({ isOpen, onClose, route, onSave, mmdObj }) => {
 	if (!isOpen) return null;
 
 	return (
-		<div className="mmd-popup-bg">
+		<div className="mmd-popup-bg" onClick={onClose}>
 			<div className="mmd-popup">
 				<div className="mmd-popup-inner saveshare">
-					<SaveEditForm
-						routeName={routeName}
-						setRouteName={setRouteName}
-						description={description}
-						setDescription={setDescription}
-						tags={tags}
-						activity={activity}
-						setActivity={setActivity}
-						activities={mmdObj.userDetails.activities || []}
-						handleTagKeyDown={handleTagKeyDown}
-						removeTag={removeTag}
-						onSubmit={handleSubmit}
-						allowRouteEditing={allowRouteEditing}
-						setAllowRouteEditing={setAllowRouteEditing}
-					/>
+					{isSaving ? (
+						<div className="mmd-load-route">
+							<Loader loaderText={__("Saving...", "mmd")} />
+						</div>
+					) : (
+						<SaveEditForm
+							routeName={routeName}
+							setRouteName={setRouteName}
+							description={description}
+							setDescription={setDescription}
+							tags={tags}
+							activity={activity}
+							setActivity={setActivity}
+							activities={mmdObj.userDetails.activities || []}
+							handleTagKeyDown={handleTagKeyDown}
+							removeTag={removeTag}
+							onSubmit={handleSubmit}
+							allowRouteEditing={allowRouteEditing}
+							setAllowRouteEditing={setAllowRouteEditing}
+							popupTitle={__("Edit Route", "mmd")}
+						/>
+					)}
 				</div>
 				<button
 					onClick={onClose}

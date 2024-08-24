@@ -79,6 +79,7 @@ const MapBox = ({ mmdObj }) => {
 		action: "save",
 		routeData: null,
 	});
+	const [loadedRouteData, setLoadedRouteData] = useState(null);
 
 	useEffect(() => {
 		if (!mapInitialized) return;
@@ -111,7 +112,7 @@ const MapBox = ({ mmdObj }) => {
 	}, [mmdObj.routeId]);
 
 	const loadSavedRoute = useCallback(
-		(routeIdOrData, isFromCookie = false) => {
+		(routeIdOrData, isFromCookie = false, retryCount = 0) => {
 			if (routeLoadingRef.current) return;
 			routeLoadingRef.current = true;
 			setIsLoading(true);
@@ -171,11 +172,10 @@ const MapBox = ({ mmdObj }) => {
 				const newAllowRouteEditing = isFromCookie
 					? true
 					: routeData.allowRouteEditing ?? false;
-				console.log("Setting allowRouteEditing to:", newAllowRouteEditing);
+
 				setAllowRouteEditing(newAllowRouteEditing);
 
 				const newIsRouteEditable = isFromCookie ? true : false;
-				console.log("Setting isRouteEditable to:", newIsRouteEditable);
 				setIsRouteEditable(newIsRouteEditable);
 
 				// Update state
@@ -235,7 +235,6 @@ const MapBox = ({ mmdObj }) => {
 			};
 
 			if (typeof routeIdOrData === "string" && !isFromCookie) {
-				// Fetch route data from the server
 				fetch(`${mmdObj.apiUrl}mmd-api/v1/get-route/${routeIdOrData}`, {
 					headers: { "X-WP-Nonce": mmdObj.nonce },
 				})
@@ -243,15 +242,20 @@ const MapBox = ({ mmdObj }) => {
 					.then((data) => {
 						if (data.success) {
 							processRouteData(data.route);
+							setLoadedRouteData(data.route);
 						} else {
 							throw new Error(data.message || "Failed to load route");
 						}
 					})
 					.catch((error) => {
 						console.error("Error loading route:", error);
-						toast.error(__("Failed to load route. Please try again.", "mmd"));
-						routeLoadingRef.current = false;
-						setIsLoading(false);
+						if (retryCount < 3) {
+							setTimeout(() => {
+								loadSavedRoute(routeIdOrData, isFromCookie, retryCount + 1);
+							}, 1000); // Wait 1 second before retrying
+						} else {
+							toast.error(__("Failed to load route. Please try again.", "mmd"));
+						}
 					})
 					.finally(() => {
 						routeLoadingRef.current = false;
@@ -1042,8 +1046,8 @@ const MapBox = ({ mmdObj }) => {
 				onSnapToggle={handleSnapToggle}
 				onToggleSearch={handleToggleSearch}
 				onToggleSaveShare={handleToggleSaveShare}
-				// isLoggedIn={!!userDetails}
 				isSaved={isSaved}
+				routeData={loadedRouteData}
 			/>
 			<SearchPopup
 				mapRef={mapRef}

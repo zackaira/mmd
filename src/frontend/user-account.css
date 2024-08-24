@@ -89,11 +89,16 @@
 	display: flex;
 	align-items: baseline;
 	justify-content: center;
+	margin: 40px 0 20px;
 }
 .mmd-route-pagination .route-pagination-btn {
 	padding: 2px 10px;
 	font-size: 13px;
 	margin: 0 15px;
+}
+.mmd-route-pagination .route-pagination-btn:disabled {
+	background-color: #999;
+	opacity: 0.5;
 }
 .mmd-route-pagination .route-pagination-no {
 	font-size: 13px;
@@ -121,7 +126,8 @@
 	font-size: 52px;
 	text-align: center;
 }
-#mmd-pp-upload {
+#mmd-pp-upload,
+.woocommerce-account .mmd-popup .content.save > p {
 	display: none !important;
 }
 /* -- Toggle Switch -- */

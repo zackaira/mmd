@@ -3,23 +3,24 @@ import { __ } from "@wordpress/i18n";
 import InputToggleSwitch from "../../backend/components/inputs/InputToggleSwitch";
 
 const SaveEditForm = ({
-	routeName = "",
+	routeName,
 	setRouteName,
-	description = "",
+	description,
 	setDescription,
-	tags = [],
-	activity = "",
+	tags,
+	activity,
 	setActivity,
-	activities = [],
+	activities,
 	handleTagKeyDown,
 	removeTag,
 	onSubmit,
-	allowRouteEditing = false,
+	allowRouteEditing,
 	setAllowRouteEditing,
+	popupTitle,
 }) => {
 	return (
 		<div className="content save">
-			<h3>{__("Save Your Route:", "mmd")}</h3>
+			<h3>{popupTitle ? popupTitle : __("Save Your Route:", "mmd")}</h3>
 			<p>
 				{__(
 					"Save your route to track progress, revisit favorite trails, and easily plan future adventures. It's a simple way to keep your experiences organized and ready for your next challenge.",

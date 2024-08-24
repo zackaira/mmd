@@ -140,6 +140,7 @@ body.woocommerce-account .mmd-popup-bg {
 	z-index: 995;
 }
 body.woocommerce-account .mmd-popup {
+	top: 80px;
 }
 .mmd-popup-inner {
 	position: relative;
@@ -165,14 +166,15 @@ button.mmd-popup-close:hover {
 }
 
 /* -- Route Save/Edit Form -- */
-.mmd-contents .content {
+.mmd-popup .content {
 	padding: 10px;
 	font-size: 14px;
 }
-.mmd-contents .mmd-form-row {
+.mmd-popup .mmd-form-row {
 	margin: 0 0 16px;
 }
-.mmd-contents h3 {
+.mmd-popup h3,
+body.woocommerce-account .mmd-popup h3 {
 	margin: 8px 0 12px;
 	padding: 0;
 	font-size: 20px;
@@ -187,8 +189,8 @@ button.mmd-popup-close:hover {
 	color: #c92121;
 	margin-left: 3px;
 }
-.mmd-contents .mmd-form-row input,
-.mmd-contents .mmd-form-row textarea {
+.mmd-popup .mmd-form-row input,
+.mmd-popup .mmd-form-row textarea {
 	font-size: 14px;
 	border: 1px solid #d8d8d8;
 	padding: 5px 8px;
@@ -212,7 +214,7 @@ button.mmd-popup-close:hover {
 }
 .tags-list {
 	display: flex;
-	margin: 0 0 8px;
+	margin: 4px 0 8px;
 }
 .tags-input input {
 	border: none;
@@ -236,6 +238,9 @@ button.mmd-popup-close:hover {
 /* - Activities - */
 .radio-group {
 	margin: 10px 0;
+}
+.woocommerce-account .radio-group {
+	padding: 0 5px;
 }
 .radio-item {
 	display: inline-flex !important;
@@ -262,6 +267,7 @@ button.mmd-popup-close:hover {
 	display: inline-block;
 	width: 40px;
 	height: 24px;
+	margin: 0 0 0 15px;
 }
 .toggle-switch input.toggle-switch-checkbox {
 	opacity: 0;

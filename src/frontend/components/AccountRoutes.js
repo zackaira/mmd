@@ -12,9 +12,11 @@ const AccountRoutes = ({ mmdObj }) => {
 	const [deletingRouteId, setDeletingRouteId] = useState(null);
 	const [savedRoutes, setSavedRoutes] = useState([]);
 	const [currentPage, setCurrentPage] = useState(1);
+	const [totalRoutes, setTotalRoutes] = useState(0);
 	const [totalPages, setTotalPages] = useState(0);
-	const routesPerPage = 2;
+	const routesPerPage = 20;
 	const [editingRoute, setEditingRoute] = useState(null);
+	const [isSaving, setIsSaving] = useState(false);
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -31,22 +33,27 @@ const AccountRoutes = ({ mmdObj }) => {
 						},
 					}
 				);
+				if (!response.ok) {
+					throw new Error("Failed to fetch routes");
+				}
 				const data = await response.json();
 
 				if (data.success) {
 					setSavedRoutes(data.routes);
-					const total = data.total ? parseInt(data.total, 10) : 0;
-					setTotalPages(total > 0 ? Math.ceil(total / routesPerPage) : 0);
+					setTotalRoutes(data.total);
+					setTotalPages(Math.ceil(data.total / routesPerPage));
+				} else {
+					throw new Error(data.message || "Failed to fetch routes");
 				}
 			} catch (error) {
 				console.error("Failed to fetch routes:", error);
+				toast.error(__("Failed to load routes. Please try again.", "mmd"));
 			} finally {
 				setIsLoading(false);
 			}
 		};
-
 		fetchRoutes();
-	}, [currentPage, mmdObj.restUrl, mmdObj.userId]);
+	}, [currentPage, mmdObj.apiUrl, mmdObj.userDetails.user_id, mmdObj.nonce]);
 
 	const conversionFactors = {
 		km: 1,
@@ -146,10 +153,19 @@ const AccountRoutes = ({ mmdObj }) => {
 	};
 
 	const handleEditRoute = (route) => {
-		setEditingRoute(route);
+		const routeData =
+			typeof route.route_data === "string"
+				? JSON.parse(route.route_data)
+				: route.route_data;
+
+		setEditingRoute({
+			...route,
+			allowRouteEditing: routeData.allowRouteEditing || false,
+		});
 	};
 
 	const handleSaveEditedRoute = async (updatedRoute) => {
+		setIsSaving(true);
 		try {
 			const response = await fetch(
 				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.id}`,
@@ -160,31 +176,44 @@ const AccountRoutes = ({ mmdObj }) => {
 						"X-WP-Nonce": mmdObj.nonce,
 					},
 					body: JSON.stringify({
-						...updatedRoute,
 						user_id: userDetails.user_id,
+						route_name: updatedRoute.route_name,
+						route_description: updatedRoute.route_description,
+						route_tags: updatedRoute.route_tags,
+						route_activity: updatedRoute.route_activity,
+						allowRouteEditing: updatedRoute.allowRouteEditing,
 					}),
+					credentials: "include",
 				}
 			);
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.message || "HTTP error " + response.status);
+			}
+
 			const data = await response.json();
+			console.log("Response from server:", data);
 
 			if (data.success) {
 				toast.success(__("Route updated successfully!", "mmd"));
-				setSavedRoutes(
-					savedRoutes.map((route) =>
+				setSavedRoutes((prevRoutes) => {
+					const updatedRoutes = prevRoutes.map((route) =>
 						route.id === updatedRoute.id ? { ...route, ...data.route } : route
-					)
-				);
+					);
+					return updatedRoutes.sort(
+						(a, b) => new Date(b.created_at) - new Date(a.created_at)
+					);
+				});
+				setEditingRoute(null);
 			} else {
-				toast.error(__("Failed to update route. Please try again!", "mmd"));
+				throw new Error(data.message || "Failed to update route");
 			}
 		} catch (error) {
-			toast.error(
-				__(
-					"An error occurred while updating the route. Please try again!",
-					"mmd"
-				)
-			);
-			console.error("Failed to update route:", error);
+			console.error("Error updating route:", error);
+			toast.error(__("Failed to update route: ", "mmd") + error.message);
+		} finally {
+			setIsSaving(false);
 		}
 	};
 
@@ -255,29 +284,6 @@ const AccountRoutes = ({ mmdObj }) => {
 									</div>
 								);
 							})}
-
-							{totalPages > 1 && (
-								<div className="mmd-route-pagination">
-									<button
-										onClick={() => handlePageChange(currentPage - 1)}
-										className="route-pagination-btn prev"
-										disabled={currentPage === 1}
-									>
-										{__("Previous", "mmd")}
-									</button>
-									<span className="route-pagination-no">{`${__(
-										"Page",
-										"mmd"
-									)} ${currentPage} ${__("of", "mmd")} ${totalPages}`}</span>
-									<button
-										onClick={() => handlePageChange(currentPage + 1)}
-										className="route-pagination-btn next"
-										disabled={currentPage === totalPages}
-									>
-										{__("Next", "mmd")}
-									</button>
-								</div>
-							)}
 						</div>
 					) : (
 						<p className="mmd-no-routes">
@@ -290,12 +296,36 @@ const AccountRoutes = ({ mmdObj }) => {
 				</>
 			)}
 
+			{totalPages > 1 && (
+				<div className="mmd-route-pagination">
+					<button
+						onClick={() => handlePageChange(currentPage - 1)}
+						className="route-pagination-btn prev"
+						disabled={currentPage === 1}
+					>
+						{__("Previous", "mmd")}
+					</button>
+					<span className="route-pagination-no">{`${__(
+						"Page",
+						"mmd"
+					)} ${currentPage} ${__("of", "mmd")} ${totalPages}`}</span>
+					<button
+						onClick={() => handlePageChange(currentPage + 1)}
+						className="route-pagination-btn next"
+						disabled={currentPage === totalPages}
+					>
+						{__("Next", "mmd")}
+					</button>
+				</div>
+			)}
+
 			<EditRoutePopup
 				isOpen={!!editingRoute}
 				onClose={() => setEditingRoute(null)}
 				route={editingRoute || {}}
 				onSave={handleSaveEditedRoute}
 				mmdObj={mmdObj}
+				isSaving={isSaving}
 			/>
 
 			<ToastContainer

@@ -44,10 +44,17 @@ class MapMyDistance_Rest_Routes {
 			'callback' => [$this, 'mmd_save_route'],
 			'permission_callback' => [$this, 'mmd_save_route_permission'],
 		]);
-		register_rest_route('mmd-api/v1', '/update-route/(?P<id>\d+)', [
+		register_rest_route('mmd-api/v1', '/update-route/(?P<id>[a-f0-9]{32})', [
 			'methods' => 'PUT',
 			'callback' => [$this, 'mmd_update_route'],
 			'permission_callback' => [$this, 'mmd_save_route_permission'],
+			'args' => [
+				'id' => [
+					'validate_callback' => function($param, $request, $key) {
+						return ctype_xdigit($param) && strlen($param) === 32;
+					}
+				],
+			],
 		]);
 		register_rest_route('mmd-api/v1', '/get-route/(?P<id>[a-f0-9]{32})', [
 			'methods' => 'GET',
@@ -226,7 +233,7 @@ class MapMyDistance_Rest_Routes {
 	
 		// Get the route data
 		$route = $wpdb->get_row(
-			$wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $route_id),
+			$wpdb->prepare("SELECT * FROM $table_name WHERE id = %s", $route_id),
 			ARRAY_A
 		);
 	
@@ -254,12 +261,10 @@ class MapMyDistance_Rest_Routes {
 			'route_activity' => sanitize_text_field($params['route_activity']),
 		);
 	
-		// Update route_data if it's provided
-		if (isset($params['route_data'])) {
-			$route_data = json_decode($route['route_data'], true);
-			$route_data['allowRouteEditing'] = $params['allow_route_editing'] ?? false;
-			$updated_data['route_data'] = json_encode($route_data);
-		}
+		// Update route_data including allowRouteEditing
+		$route_data = json_decode($route['route_data'], true) ?: array();
+		$route_data['allowRouteEditing'] = isset($params['allowRouteEditing']) ? (bool)$params['allowRouteEditing'] : false;
+		$updated_data['route_data'] = json_encode($route_data);
 	
 		$result = $wpdb->update(
 			$table_name,
@@ -273,9 +278,12 @@ class MapMyDistance_Rest_Routes {
 	
 		// Get the updated route
 		$updated_route = $wpdb->get_row(
-			$wpdb->prepare("SELECT * FROM $table_name WHERE id = %d", $route_id),
+			$wpdb->prepare("SELECT * FROM $table_name WHERE id = %s", $route_id),
 			ARRAY_A
 		);
+	
+		// Decode route_data for the response
+		$updated_route['route_data'] = json_decode($updated_route['route_data'], true);
 	
 		return new WP_REST_Response(array(
 			'success' => true,
@@ -366,11 +374,23 @@ class MapMyDistance_Rest_Routes {
 		$table_name = $wpdb->prefix . 'mmd_map_routes';
 	
 		$user_id = intval($request['user_id']);
+		$page = isset($request['page']) ? intval($request['page']) : 1;
+		$per_page = isset($request['per_page']) ? intval($request['per_page']) : 10;
+		$offset = ($page - 1) * $per_page;
 	
+		// Get total count of routes for this user
+		$total_routes = $wpdb->get_var($wpdb->prepare(
+			"SELECT COUNT(*) FROM $table_name WHERE user_id = %d",
+			$user_id
+		));
+	
+		// Get paginated routes
 		$routes = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT * FROM $table_name WHERE user_id = %d",
-				$user_id
+				"SELECT * FROM $table_name WHERE user_id = %d ORDER BY created_at DESC LIMIT %d OFFSET %d",
+				$user_id,
+				$per_page,
+				$offset
 			),
 			ARRAY_A
 		);
@@ -387,6 +407,9 @@ class MapMyDistance_Rest_Routes {
 		return rest_ensure_response([
 			'success' => true,
 			'routes' => $routes,
+			'total' => intval($total_routes),
+			'page' => $page,
+			'per_page' => $per_page,
 		]);
 	}
 
