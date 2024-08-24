@@ -130,6 +130,7 @@
 	width: 60%;
 	max-width: 540px;
 	max-height: 80%;
+	min-width: 540px;
 }
 body.woocommerce-account .mmd-popup-bg {
 	position: fixed;
@@ -140,6 +141,7 @@ body.woocommerce-account .mmd-popup-bg {
 	z-index: 995;
 }
 body.woocommerce-account .mmd-popup {
+	position: fixed;
 	top: 80px;
 }
 .mmd-popup-inner {
