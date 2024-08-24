@@ -59,7 +59,8 @@ const EditRoutePopup = ({
 	if (!isOpen) return null;
 
 	return (
-		<div className="mmd-popup-bg" onClick={onClose}>
+		<>
+			<div className="mmd-popup-bg" onClick={onClose}></div>
 			<div className="mmd-popup">
 				<div className="mmd-popup-inner saveshare">
 					{isSaving ? (
@@ -90,7 +91,7 @@ const EditRoutePopup = ({
 					className="mmd-popup-close fa-solid fa-xmark"
 				></button>
 			</div>
-		</div>
+		</>
 	);
 };
 
