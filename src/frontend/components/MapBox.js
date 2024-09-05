@@ -614,7 +614,7 @@ const MapBox = ({ mmdObj }) => {
 			// Check if the click is on the current position marker or a POI marker
 			if (
 				e.originalEvent.target.classList.contains("current-position-marker") ||
-				e.originalEvent.target.classList.contains("poi-marker") ||
+				e.originalEvent.target.classList.contains("mmd-poi-marker") ||
 				e.originalEvent.target.closest(".mapboxgl-popup")
 			) {
 				return; // Do nothing if clicked on current position marker, POI marker, or POI popup
@@ -1143,22 +1143,21 @@ const MapBox = ({ mmdObj }) => {
 		// Add new POI markers
 		pointsOfInterest.forEach((poi) => {
 			const el = document.createElement("div");
-			el.className = "poi-marker";
+			el.className = "mmd-poi-marker";
 			el.innerHTML = "📍";
 			el.title = poi.title;
 
 			const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-				`<div class="poi-popup-content">
+				`<div class="mmd-poi-content">
                     <h3>${poi.title}</h3>
                     <p>${poi.description}</p>
-                    <button class="edit-poi" data-poi-id="${poi.id}">${__(
-					"Edit",
-					"mmd"
-				)}</button>
-                    <button class="delete-poi" data-poi-id="${poi.id}">${__(
-					"Delete",
-					"mmd"
-				)}</button>
+					<div class="mmd-poi-btns">
+                    <button class="poi-btn edit-poi" data-poi-id="${
+											poi.id
+										}">${__("Edit", "mmd")}</button>
+                    <button class="poi-btn delete-poi" data-poi-id="${
+											poi.id
+										}">${__("Delete", "mmd")}</button></div>
                 </div>`
 			);
 
@@ -1176,7 +1175,7 @@ const MapBox = ({ mmdObj }) => {
 
 			// Add event listeners to edit and delete buttons after the popup is added to the DOM
 			popup.on("open", () => {
-				const popupContent = document.querySelector(".poi-popup-content");
+				const popupContent = document.querySelector(".mmd-poi-content");
 				if (popupContent) {
 					const editButton = popupContent.querySelector(".edit-poi");
 					const deleteButton = popupContent.querySelector(".delete-poi");
