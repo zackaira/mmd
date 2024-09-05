@@ -1126,10 +1126,16 @@ const MapBox = ({ mmdObj }) => {
 	}, []);
 
 	const handlePoiDelete = useCallback((poiId) => {
-		setPointsOfInterest((prevPois) => prevPois.filter((p) => p.id !== poiId));
-		if (poiMarkersRef.current[poiId]) {
-			poiMarkersRef.current[poiId].remove();
-			delete poiMarkersRef.current[poiId];
+		const confirmDelete = window.confirm(
+			__("Are you sure you want to delete this Point of Interest?", "mmd")
+		);
+
+		if (confirmDelete) {
+			setPointsOfInterest((prevPois) => prevPois.filter((p) => p.id !== poiId));
+			if (poiMarkersRef.current[poiId]) {
+				poiMarkersRef.current[poiId].remove();
+				delete poiMarkersRef.current[poiId];
+			}
 		}
 	}, []);
 
