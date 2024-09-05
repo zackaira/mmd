@@ -25,6 +25,9 @@ const MapBoxControls = ({
 	onToggleSearch,
 	onToggleSaveShare,
 	routeData,
+	sliderPosition,
+	routeLength,
+	onSliderChange,
 }) => {
 	const [isBoxHidden, setIsBoxHidden] = useState(false);
 
@@ -44,9 +47,30 @@ const MapBoxControls = ({
 		setIsBoxHidden(!isBoxHidden);
 	};
 
+	const handleSliderChange = (event) => {
+		const newPosition = parseInt(event.target.value, 10);
+		onSliderChange(newPosition);
+	};
+
 	return (
 		<>
 			<div className="mmd-boxwrap">
+				{routeLength > 0 && (
+					<div className="mmd-route-slider">
+						<input
+							type="range"
+							min="0"
+							max="100"
+							value={sliderPosition}
+							onChange={handleSliderChange}
+							className="mmd-slider"
+						/>
+						{/* <div className="mmd-slider-label">
+							{__("Route Progress", "mmd")}: {sliderPosition}%
+						</div> */}
+					</div>
+				)}
+
 				<div
 					className={`mmd-box-toggle fa-solid ${
 						isBoxHidden ? "fa-chevron-right" : "fa-chevron-left"
@@ -194,6 +218,13 @@ const MapBoxControls = ({
 								: {})}
 							title={__("Share This Route", "mmd")}
 						></div>
+						{/* <div
+							className={`fa-solid fa-plus mmd-control share ${
+								canDeleteSave ? "" : "disabled"
+							}`}
+							{...(canDeleteSave ? { onClick: onAddPOI } : {})}
+							title={__("Add a Point of Interest", "mmd")}
+						></div> */}
 					</div>
 				)}
 
@@ -202,14 +233,14 @@ const MapBoxControls = ({
 						<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
 						<p className="mmd-rdata-desc">{routeData.description}</p>
 
-						<div className="mmd-rdata-btns">
+						{/* <div className="mmd-rdata-btns">
 							<a href="" target="_blank" className="button mmd-rdata-btn">
 								{__("View Event Website", "mmd")}
 							</a>
 							<a href="" target="_blank" className="button mmd-rdata-btn">
 								{__("Enter This Event", "mmd")}
 							</a>
-						</div>
+						</div> */}
 					</div>
 				)}
 			</div>

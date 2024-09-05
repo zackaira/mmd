@@ -80,6 +80,14 @@ class MapMyDistance_Rest_Routes {
 			'callback' => [$this, 'mmd_delete_route'],
 			'permission_callback' => [$this, 'mmd_save_route_permission'],
 		]);
+		/*
+		 * Admin Stats API
+		 */
+		register_rest_route('mmd-api/v1', '/stats', [
+			'methods' => 'GET',
+			'callback' => [$this, 'mmd_get_user_stats'],
+			'permission_callback' => [$this, 'mmd_admin_permissions_check'],
+		]);
 	}
 
 	/*
@@ -114,6 +122,10 @@ class MapMyDistance_Rest_Routes {
 	public function mmd_save_route_permission() {
 		return is_user_logged_in() && current_user_can('read') ? true : false;
 	}
+
+	public function mmd_admin_permissions_check() {
+        return current_user_can('manage_options');
+    }
 
 	/*
 	 * Save settings as JSON string
@@ -428,6 +440,58 @@ class MapMyDistance_Rest_Routes {
 		}
 	
 		return rest_ensure_response(['success' => true, 'message' => 'Route deleted successfully']);
+	}
+
+	/*
+	 * Get User Stats for Admin
+	 */
+
+	/*
+	 * Get Users & their routes count
+	 */
+	public function mmd_get_user_stats() {
+		global $wpdb;
+	
+		// Define the roles you want to include
+		$roles = ['customer', 'administrator'];
+	
+		// Prepare the SQL for role matching
+		$role_placeholders = implode(',', array_fill(0, count($roles), '%s'));
+		
+		$query = $wpdb->prepare(
+			"SELECT 
+				u.ID as user_id, 
+				u.user_email as email, 
+				u.display_name as name, 
+				COUNT(r.ID) as route_count,
+				GROUP_CONCAT(um.meta_value) as roles
+			FROM {$wpdb->users} u
+			LEFT JOIN {$wpdb->prefix}mmd_map_routes r ON u.ID = r.user_id
+			INNER JOIN {$wpdb->usermeta} um ON u.ID = um.user_id AND um.meta_key = '{$wpdb->prefix}capabilities'
+			WHERE (um.meta_value LIKE %s OR um.meta_value LIKE %s)
+			GROUP BY u.ID
+			ORDER BY u.ID",
+			array_merge(
+				array_map(function($role) use ($wpdb) { 
+					return '%' . $wpdb->esc_like('"' . $role . '"') . '%'; 
+				}, $roles)
+			)
+		);
+	
+		$results = $wpdb->get_results($query);
+	
+		$stats = array_map(function($row) {
+			$roles = maybe_unserialize($row->roles);
+			return [
+				'user_id' => (int)$row->user_id,
+				'email' => $row->email,
+				'name' => $row->name,
+				'roles' => is_array($roles) ? array_keys($roles) : [],
+				'route_count' => (int)$row->route_count
+			];
+		}, $results);
+	
+		return new WP_REST_Response($stats, 200);
 	}
 }
 new MapMyDistance_Rest_Routes();

@@ -11,6 +11,7 @@ import SearchPopup from "./SearchPopup";
 import SaveSharePopup from "./SaveSharePopup";
 import Loader from "../../Loader";
 import Cookies from "js-cookie";
+import PoiForm from "./PoiForm";
 
 mapboxgl.accessToken =
 	"pk.eyJ1IjoiemFja2FpcmEiLCJhIjoiY2x6czFzcDlnMGk4eDJpczk0aGU1Zms0aiJ9.rtKaICIv9h1DOrpNupfRzw";
@@ -80,6 +81,14 @@ const MapBox = ({ mmdObj }) => {
 		routeData: null,
 	});
 	const [loadedRouteData, setLoadedRouteData] = useState(null);
+
+	const [sliderPosition, setSliderPosition] = useState(0);
+	const currentPositionMarkerRef = useRef(null);
+	const routeLengthRef = useRef(0);
+
+	const [pointsOfInterest, setPointsOfInterest] = useState([]);
+	const [editingPoi, setEditingPoi] = useState(null);
+	const poiMarkersRef = useRef({});
 
 	useEffect(() => {
 		if (!mapInitialized) return;
@@ -602,6 +611,15 @@ const MapBox = ({ mmdObj }) => {
 		async (e) => {
 			if (!isRouteEditable) return;
 
+			// Check if the click is on the current position marker or a POI marker
+			if (
+				e.originalEvent.target.classList.contains("current-position-marker") ||
+				e.originalEvent.target.classList.contains("poi-marker") ||
+				e.originalEvent.target.closest(".mapboxgl-popup")
+			) {
+				return; // Do nothing if clicked on current position marker, POI marker, or POI popup
+			}
+
 			const map = mapRef.current;
 			if (!map) return;
 
@@ -983,6 +1001,7 @@ const MapBox = ({ mmdObj }) => {
 			units: units,
 			bounds: mapRef.current.getBounds().toArray(),
 			allowRouteEditing: allowRouteEditing,
+			pointsOfInterest: pointsOfInterest,
 		};
 
 		// Now you can pass this routeData to your SaveSharePopup component
@@ -1020,6 +1039,184 @@ const MapBox = ({ mmdObj }) => {
 		);
 	}, [mmdObj.siteUrl]);
 
+	/*
+	 * Route Progress Slider
+	 */
+	useEffect(() => {
+		if (linestringRef.current.geometry.coordinates.length > 1) {
+			const route = turf.lineString(linestringRef.current.geometry.coordinates);
+			routeLengthRef.current = turf.length(route, { units: "kilometers" });
+		}
+	}, [linestringRef.current.geometry.coordinates]);
+
+	const handleSliderChange = useCallback(
+		(position) => {
+			setSliderPosition(position);
+
+			if (linestringRef.current.geometry.coordinates.length < 2) return;
+
+			const route = turf.lineString(linestringRef.current.geometry.coordinates);
+			const totalLength = routeLengthRef.current;
+
+			// Calculate the distance along the route based on slider position
+			const distanceAlong = (position / 100) * totalLength;
+
+			// Get the interpolated point along the route
+			const currentPosition = turf.along(route, distanceAlong, {
+				units: "kilometers",
+			}).geometry.coordinates;
+
+			// Update the "current position" marker on the map
+			updateCurrentPositionMarker(currentPosition);
+
+			// Only pan the map if centerOnNewMarker is true
+			if (centerOnNewMarker && mapRef.current) {
+				mapRef.current.panTo(currentPosition);
+			}
+		},
+		[centerOnNewMarker]
+	);
+
+	const updateCurrentPositionMarker = useCallback(
+		(position) => {
+			if (!mapRef.current) return;
+
+			if (!currentPositionMarkerRef.current) {
+				// Create a new marker if it doesn't exist
+				const el = document.createElement("div");
+				el.className = "current-position-marker";
+				currentPositionMarkerRef.current = new mapboxgl.Marker(el)
+					.setLngLat(position)
+					.addTo(mapRef.current);
+
+				// Add click event listener to the marker element
+				el.addEventListener("click", handleCurrentPositionMarkerClick);
+			} else {
+				// Update existing marker position
+				currentPositionMarkerRef.current.setLngLat(position);
+			}
+		},
+		[handleCurrentPositionMarkerClick]
+	);
+
+	/*
+	 * Points of Interest
+	 */
+	const handleCurrentPositionMarkerClick = useCallback((e) => {
+		e.preventDefault();
+		e.stopPropagation();
+		const lngLat = currentPositionMarkerRef.current.getLngLat();
+		setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
+	}, []);
+
+	const handlePoiSave = useCallback((poi) => {
+		setPointsOfInterest((prevPois) => {
+			if (poi.id) {
+				return prevPois.map((p) => (p.id === poi.id ? poi : p));
+			} else {
+				const newPoi = { ...poi, id: Date.now() };
+				return [...prevPois, newPoi];
+			}
+		});
+		setEditingPoi(null);
+	}, []);
+
+	const handlePoiEdit = useCallback((poi) => {
+		setEditingPoi(poi);
+	}, []);
+
+	const handlePoiDelete = useCallback((poiId) => {
+		setPointsOfInterest((prevPois) => prevPois.filter((p) => p.id !== poiId));
+		if (poiMarkersRef.current[poiId]) {
+			poiMarkersRef.current[poiId].remove();
+			delete poiMarkersRef.current[poiId];
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!mapRef.current) return;
+
+		// Remove existing POI markers
+		Object.values(poiMarkersRef.current).forEach((marker) => marker.remove());
+		poiMarkersRef.current = {};
+
+		// Add new POI markers
+		pointsOfInterest.forEach((poi) => {
+			const el = document.createElement("div");
+			el.className = "poi-marker";
+			el.innerHTML = "📍";
+			el.title = poi.title;
+
+			const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+				`<div class="poi-popup-content">
+                    <h3>${poi.title}</h3>
+                    <p>${poi.description}</p>
+                    <button class="edit-poi" data-poi-id="${poi.id}">${__(
+					"Edit",
+					"mmd"
+				)}</button>
+                    <button class="delete-poi" data-poi-id="${poi.id}">${__(
+					"Delete",
+					"mmd"
+				)}</button>
+                </div>`
+			);
+
+			const marker = new mapboxgl.Marker(el)
+				.setLngLat(poi.lngLat)
+				.setPopup(popup)
+				.addTo(mapRef.current);
+
+			poiMarkersRef.current[poi.id] = marker;
+
+			marker.getElement().addEventListener("click", (e) => {
+				e.stopPropagation(); // Prevent the click from propagating to the map
+				marker.togglePopup();
+			});
+
+			// Add event listeners to edit and delete buttons after the popup is added to the DOM
+			popup.on("open", () => {
+				const popupContent = document.querySelector(".poi-popup-content");
+				if (popupContent) {
+					const editButton = popupContent.querySelector(".edit-poi");
+					const deleteButton = popupContent.querySelector(".delete-poi");
+
+					if (editButton) {
+						editButton.addEventListener("click", (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							handlePoiEdit(poi);
+							marker.togglePopup(); // Close the popup after clicking edit
+						});
+					}
+
+					if (deleteButton) {
+						deleteButton.addEventListener("click", (e) => {
+							e.preventDefault();
+							e.stopPropagation();
+							handlePoiDelete(poi.id);
+						});
+					}
+				}
+			});
+		});
+	}, [pointsOfInterest, handlePoiEdit, handlePoiDelete]);
+
+	useEffect(() => {
+		if (currentPositionMarkerRef.current) {
+			currentPositionMarkerRef.current
+				.getElement()
+				.addEventListener("click", handleCurrentPositionMarkerClick);
+		}
+		return () => {
+			if (currentPositionMarkerRef.current) {
+				currentPositionMarkerRef.current
+					.getElement()
+					.removeEventListener("click", handleCurrentPositionMarkerClick);
+			}
+		};
+	}, [handleCurrentPositionMarkerClick]);
+
 	return (
 		<>
 			<MapBoxControls
@@ -1048,7 +1245,21 @@ const MapBox = ({ mmdObj }) => {
 				onToggleSaveShare={handleToggleSaveShare}
 				isSaved={isSaved}
 				routeData={loadedRouteData}
+				sliderPosition={sliderPosition}
+				routeLength={
+					linestringRef.current.geometry.coordinates.length > 1 ? 100 : 0
+				}
+				onSliderChange={handleSliderChange}
+				pointsOfInterest={pointsOfInterest}
 			/>
+			{editingPoi && (
+				<PoiForm
+					poi={editingPoi}
+					onSave={handlePoiSave}
+					onCancel={() => setEditingPoi(null)}
+				/>
+			)}
+
 			<SearchPopup
 				mapRef={mapRef}
 				mapboxClient={mapboxClient}

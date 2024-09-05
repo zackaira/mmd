@@ -85,7 +85,7 @@ const ShareButtons = ({ routeUrl }) => {
 			>
 				{__("X.com", "mmd")}
 			</button>
-			<button
+			{/* <button
 				className="social-btn instagram"
 				onClick={() =>
 					alert(
@@ -94,7 +94,7 @@ const ShareButtons = ({ routeUrl }) => {
 				}
 			>
 				{__("Instagram", "mmd")}
-			</button>
+			</button> */}
 			<button
 				className="social-btn linkedin"
 				onClick={() =>

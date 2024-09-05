@@ -197,7 +197,6 @@ class MapMyDistance {
 				'apiUrl' => esc_url(get_rest_url()),
 				'adminUrl' => esc_url(admin_url()),
 				'nonce' => wp_create_nonce('wp_rest'),
-				'mmdOptions' => $mmdOptions->settings,
 			));
 		}
 

@@ -7,7 +7,7 @@
 /* -- MMD Box -- */
 .mmd-boxwrap {
 	position: absolute;
-	top: 12px;
+	top: 18px;
 	left: 12px;
 	z-index: 99;
 	transition: left 0.4s ease-in-out 0.1s;
@@ -246,4 +246,153 @@ body.mmd-box-hide .mmd-boxwrap {
 }
 .mmd-rdata .mmd-rdata-btn:hover {
 	background-color: var(--e-global-color-primary);
+}
+
+/* -- Slider Marker -- */
+.current-position-marker {
+	background-color: #2e9632;
+	width: 15px;
+	height: 15px;
+	border-radius: 50%;
+	border: 2px solid #ffffff;
+	cursor: pointer;
+}
+.mmd-route-slider {
+	position: absolute;
+	z-index: 99;
+	top: -21px;
+	width: 100%;
+	width: calc(100% - 1px);
+}
+.mmd-route-slider input[type="range"].mmd-slider {
+	-webkit-appearance: none;
+	margin: 0;
+	width: 100%;
+}
+.mmd-route-slider input[type="range"].mmd-slider:focus {
+	outline: none;
+}
+.mmd-route-slider
+	input[type="range"].mmd-slider::-webkit-slider-runnable-track {
+	width: 100%;
+	height: 4px;
+	cursor: pointer;
+	box-shadow: none;
+	background: #596166;
+	border-radius: 2px;
+	border: 0;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-webkit-slider-thumb {
+	box-shadow: none;
+	border: 1px solid #596166;
+	height: 16px;
+	width: 10px;
+	border-radius: 4px 4px 2px 2px;
+	background: #ffffff;
+	cursor: pointer;
+	-webkit-appearance: none;
+	margin-top: -10px;
+	cursor: pointer;
+}
+.mmd-route-slider
+	input[type="range"].mmd-slider:focus::-webkit-slider-runnable-track {
+	background: #596166;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-moz-range-track {
+	width: 100%;
+	height: 4px;
+	cursor: pointer;
+	box-shadow: none;
+	background: #596166;
+	border-radius: 2px;
+	border: 0.2px solid #010101;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-moz-range-thumb {
+	box-shadow: none;
+	border: 1px solid #596166;
+	height: 16px;
+	width: 10px;
+	border-radius: 4px 4px 2px 2px;
+	background: #ffffff;
+	cursor: pointer;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-ms-track {
+	width: 100%;
+	height: 4px;
+	cursor: pointer;
+	background: transparent;
+	border-color: transparent;
+	border-width: 10px 0;
+	color: transparent;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-ms-fill-lower {
+	background: #596166;
+	border: 0;
+	border-radius: 2px;
+	box-shadow: none;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-ms-fill-upper {
+	background: #596166;
+	border: 0;
+	border-radius: 2px;
+	box-shadow: none;
+}
+.mmd-route-slider input[type="range"].mmd-slider::-ms-thumb {
+	box-shadow: none;
+	border: 1px solid #596166;
+	height: 16px;
+	width: 10px;
+	border-radius: 4px 4px 2px 2px;
+	background: #ffffff;
+	cursor: pointer;
+}
+.mmd-route-slider input[type="range"].mmd-slider:focus::-ms-fill-lower {
+	background: #596166;
+}
+.mmd-route-slider input[type="range"].mmd-slider:focus::-ms-fill-upper {
+	background: #596166;
+}
+
+/* -- Points of Interest -- */
+.poi-marker {
+	cursor: pointer;
+	font-size: 24px;
+}
+
+.poi-form {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background: white;
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+	z-index: 1000;
+}
+
+.poi-form input,
+.poi-form textarea {
+	width: 100%;
+	margin-bottom: 10px;
+	padding: 5px;
+}
+
+.poi-form button {
+	margin-right: 10px;
+}
+
+.poi-popup-content h3 {
+	margin-top: 0;
+	margin-bottom: 10px;
+}
+
+.poi-popup-content p {
+	margin-bottom: 10px;
+}
+
+.poi-popup-content button {
+	margin-right: 5px;
+	padding: 5px 10px;
+	cursor: pointer;
 }
