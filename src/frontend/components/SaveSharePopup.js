@@ -86,7 +86,8 @@ const SaveSharePopup = ({
 					activity,
 					routeData: {
 						...routeData,
-						allowRouteEditing, // Include allowRouteEditing in the routeData
+						allowRouteEditing,
+						pointsOfInterest: routeData.pointsOfInterest || [],
 					},
 					distance,
 				}),
@@ -98,11 +99,10 @@ const SaveSharePopup = ({
 
 			const data = await response.json();
 
-			console.log("Saving allowRouteEditing:", allowRouteEditing);
-
 			onSaveSuccess({
 				...data,
-				allowRouteEditing, // Pass allowRouteEditing back to the parent component
+				allowRouteEditing,
+				pointsOfInterest: routeData.pointsOfInterest || [],
 			});
 			setIsLoading(false);
 			setRouteUrl(`${mmdObj.siteUrl}/?route=${data.route_id}`);

@@ -199,8 +199,16 @@ class MapMyDistance_Rest_Routes {
 		$route_description = sanitize_textarea_field($params['description']);
 		$route_tags = sanitize_text_field(implode(',', $params['tags']));
 		$route_activity = sanitize_text_field($params['activity']);
-		$route_data = json_encode($params['routeData']);
 		$distance = floatval($params['distance']);
+	
+		// Sanitize and prepare route data
+		$route_data = $params['routeData'];
+		$route_data['allowRouteEditing'] = isset($route_data['allowRouteEditing']) ? (bool)$route_data['allowRouteEditing'] : false;
+		
+		// Ensure pointsOfInterest is included and sanitized
+		$route_data['pointsOfInterest'] = isset($route_data['pointsOfInterest']) ? $this->mmd_sanitize_points_of_interest($route_data['pointsOfInterest']) : [];
+	
+		$route_data_json = json_encode($route_data);
 	
 		// Generate a unique hash ID
 		$hash_id = $this->generate_unique_hash_id($user_id, $route_name);
@@ -214,7 +222,7 @@ class MapMyDistance_Rest_Routes {
 				'route_description' => $route_description,
 				'route_tags' => $route_tags,
 				'route_activity' => $route_activity,
-				'route_data' => $route_data,
+				'route_data' => $route_data_json,
 				'created_at' => current_time('mysql'),
 				'distance' => $distance,
 			],
@@ -232,6 +240,21 @@ class MapMyDistance_Rest_Routes {
 			'message' => 'Route saved successfully',
 			'route_id' => $hash_id
 		]);
+	}
+
+	// Function to Sanitize the Points of Interest
+	private function mmd_sanitize_points_of_interest($points) {
+		return array_map(function($point) {
+			return [
+				'id' => isset($point['id']) ? intval($point['id']) : null,
+				'title' => isset($point['title']) ? sanitize_text_field($point['title']) : '',
+				'description' => isset($point['description']) ? sanitize_textarea_field($point['description']) : '',
+				'lngLat' => isset($point['lngLat']) && is_array($point['lngLat']) ? 
+					array_map('floatval', $point['lngLat']) : 
+					[0, 0],
+				'icon' => isset($point['icon']) ? sanitize_text_field($point['icon']) : 'fa-map-marker'
+			];
+		}, $points);
 	}
 
 	/*
@@ -330,6 +353,7 @@ class MapMyDistance_Rest_Routes {
 		$table_name = $wpdb->prefix . 'mmd_map_routes';
 	
 		$route_id = $request['id'];
+		$current_user_id = get_current_user_id();
 		
 		error_log("Fetching route with ID: " . $route_id);
 	
@@ -346,26 +370,35 @@ class MapMyDistance_Rest_Routes {
 			return new WP_Error('no_route', 'No route found with this ID', ['status' => 404]);
 		}
 	
-		error_log("Route found: " . print_r($route, true));
-	
 		// Decode the JSON stored in route_data
-		$route['route_data'] = json_decode($route['route_data'], true);
+		$route_data = json_decode($route['route_data'], true);
+	
+		error_log("Raw route_data: " . $route['route_data']);
+		error_log("Decoded route_data: " . print_r($route_data, true));
+	
+		// Ensure pointsOfInterest is properly extracted
+		$points_of_interest = isset($route_data['pointsOfInterest']) ? $route_data['pointsOfInterest'] : [];
+		error_log("Extracted Points of Interest: " . print_r($points_of_interest, true));
+
+		$is_route_owner = $current_user_id == $route['user_id'];
 	
 		// Prepare the response in a consistent format
 		$response = [
 			'success' => true,
 			'route' => [
 				'id' => $route['id'],
+				'isRouteOwner' => $is_route_owner,
 				'routeName' => $route['route_name'],
 				'description' => $route['route_description'],
 				'tags' => explode(',', $route['route_tags']),
 				'activity' => $route['route_activity'],
 				'fullDistance' => floatval($route['distance']),
-				'coordinates' => $route['route_data']['coordinates'] ?? [],
-				'linestring' => $route['route_data']['linestring'] ?? [],
-				'units' => $route['route_data']['units'] ?? 'km',
-				'bounds' => $route['route_data']['bounds'] ?? null,
-				'allowRouteEditing' => isset($route['route_data']['allowRouteEditing']) ? (bool)$route['route_data']['allowRouteEditing'] : false,
+				'coordinates' => $route_data['coordinates'] ?? [],
+				'linestring' => $route_data['linestring'] ?? [],
+				'units' => $route_data['units'] ?? 'km',
+				'bounds' => $route_data['bounds'] ?? null,
+				'allowRouteEditing' => isset($route_data['allowRouteEditing']) ? (bool)$route_data['allowRouteEditing'] : false,
+				'pointsOfInterest' => $points_of_interest,
 			],
 		];
 
@@ -374,6 +407,8 @@ class MapMyDistance_Rest_Routes {
 		// if (get_current_user_id() != $route['user_id']) {
 		// 	return new WP_Error('no_permission', 'You do not have permission to view this route', ['status' => 403]);
 		// }
+	
+		error_log("Sending response: " . print_r($response, true));
 	
 		return rest_ensure_response($response);
 	}

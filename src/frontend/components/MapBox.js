@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, {
+	useState,
+	useEffect,
+	useRef,
+	useCallback,
+	useMemo,
+} from "react";
 import { __ } from "@wordpress/i18n";
 import "mapbox-gl/dist/mapbox-gl.css";
 import mapboxgl from "mapbox-gl";
@@ -31,6 +37,18 @@ const convertDistance = (distance, fromUnit, toUnit) => {
 	return toUnit === "km" ? inKm : inKm * conversionFactors[toUnit];
 };
 
+function debounce(func, wait) {
+	let timeout;
+	return function executedFunction(...args) {
+		const later = () => {
+			clearTimeout(timeout);
+			func(...args);
+		};
+		clearTimeout(timeout);
+		timeout = setTimeout(later, wait);
+	};
+}
+
 const MapBox = ({ mmdObj }) => {
 	const mapContainerRef = useRef(null);
 	const mapRef = useRef(null);
@@ -47,11 +65,15 @@ const MapBox = ({ mmdObj }) => {
 	});
 
 	const [isLoading, setIsLoading] = useState(false);
+	const [isNewRoute, setIsNewRoute] = useState(true);
 	const [isRouteEditable, setIsRouteEditable] = useState(true);
 	const [isRouteClosed, setIsRouteClosed] = useState(false);
-	const [allowRouteEditing, setAllowRouteEditing] = useState(false);
+	const [allowRouteEditing, setAllowRouteEditing] = useState(true);
 
 	const [userDetails, setUserDetails] = useState(mmdObj?.userDetails || null);
+	const [isPremiumUser, setIsPremiumUser] = useState(
+		mmdObj?.userDetails?.isPremium || false
+	);
 	const [isSaved, setIsSaved] = useState(false);
 
 	const [rawLastDistance, setRawLastDistance] = useState(0);
@@ -88,7 +110,19 @@ const MapBox = ({ mmdObj }) => {
 
 	const [pointsOfInterest, setPointsOfInterest] = useState([]);
 	const [editingPoi, setEditingPoi] = useState(null);
+	const [arePoisVisible, setArePoisVisible] = useState(true);
+
 	const poiMarkersRef = useRef({});
+	const isNewRouteRef = useRef(isNewRoute);
+	const isRouteEditableRef = useRef(isRouteEditable);
+	const allowRouteEditingRef = useRef(allowRouteEditing);
+
+	// Update refs when state changes
+	useEffect(() => {
+		isNewRouteRef.current = isNewRoute;
+		isRouteEditableRef.current = isRouteEditable;
+		allowRouteEditingRef.current = allowRouteEditing;
+	}, [isNewRoute, isRouteEditable, allowRouteEditing]);
 
 	useEffect(() => {
 		if (!mapInitialized) return;
@@ -114,14 +148,18 @@ const MapBox = ({ mmdObj }) => {
 	}, [mapInitialized, mmdObj.routeId, userDetails, loadSavedRoute]);
 
 	useEffect(() => {
-		const routeId = mmdObj.routeId;
-		if (routeId && !mapRef.current) {
-			loadSavedRoute(routeId);
+		if (mmdObj.routeId) {
+			if (!mapRef.current) {
+				loadSavedRoute(mmdObj.routeId, false);
+			}
+			setIsNewRouteAndRef(false);
+		} else {
+			setIsNewRouteAndRef(true);
 		}
-	}, [mmdObj.routeId]);
+	}, [mmdObj.routeId, loadSavedRoute, setIsNewRouteAndRef]);
 
 	const loadSavedRoute = useCallback(
-		(routeIdOrData, isFromCookie = false, retryCount = 0) => {
+		(routeIdOrData, isFromCookie = false) => {
 			if (routeLoadingRef.current) return;
 			routeLoadingRef.current = true;
 			setIsLoading(true);
@@ -182,34 +220,27 @@ const MapBox = ({ mmdObj }) => {
 					? true
 					: routeData.allowRouteEditing ?? false;
 
-				setAllowRouteEditing(newAllowRouteEditing);
+				setIsNewRouteAndRef(false);
+				setIsRouteEditableAndRef(isFromCookie);
+				setAllowRouteEditingAndRef(newAllowRouteEditing);
 
-				const newIsRouteEditable = isFromCookie ? true : false;
-				setIsRouteEditable(newIsRouteEditable);
-
-				// Update state
-				setRawFullDistance(routeData.fullDistance || 0);
-				setUnits(routeData.units || "km");
 				setIsSaved(!isFromCookie);
 
-				// Update the map
+				setRawFullDistance(routeData.fullDistance || 0);
+				setUnits(routeData.units || "km");
+
+				// Process Points of Interest
+				setPointsOfInterest(
+					Array.isArray(routeData.pointsOfInterest)
+						? routeData.pointsOfInterest
+						: []
+				);
+
+				// Update the map when it's available
 				if (mapRef.current && mapRef.current.getSource("geojson")) {
 					mapRef.current.getSource("geojson").setData(geojsonRef.current);
-				}
 
-				// Fit the map to the route bounds
-				if (
-					mapRef.current &&
-					routeData.bounds &&
-					Array.isArray(routeData.bounds) &&
-					routeData.bounds.length === 2
-				) {
-					mapRef.current.fitBounds(routeData.bounds, {
-						padding: { top: 50, bottom: 50, left: 50, right: 50 },
-						duration: 1000,
-					});
-				} else {
-					// If bounds are not available or invalid, fit to the linestring
+					// Fit the map to the route bounds
 					if (linestring.length > 0) {
 						const bounds = new mapboxgl.LngLatBounds();
 						linestring.forEach((coord) => bounds.extend(coord));
@@ -218,19 +249,17 @@ const MapBox = ({ mmdObj }) => {
 							duration: 1000,
 						});
 					}
-				}
 
-				// Recalculate distances
-				recalculateDistances();
-
-				// Update click handlers
-				if (mapRef.current) {
+					// Update click handlers
 					if (isFromCookie) {
 						mapRef.current.on("click", handleMapClick);
 					} else {
 						mapRef.current.off("click", handleMapClick);
 					}
 				}
+
+				// Recalculate distances
+				recalculateDistances();
 
 				toast.success(
 					isFromCookie
@@ -258,29 +287,38 @@ const MapBox = ({ mmdObj }) => {
 					})
 					.catch((error) => {
 						console.error("Error loading route:", error);
-						if (retryCount < 3) {
-							setTimeout(() => {
-								loadSavedRoute(routeIdOrData, isFromCookie, retryCount + 1);
-							}, 1000); // Wait 1 second before retrying
-						} else {
-							toast.error(__("Failed to load route. Please try again.", "mmd"));
-						}
+						// ... existing error handling ...
 					})
 					.finally(() => {
 						routeLoadingRef.current = false;
 						setIsLoading(false);
-						setTimeout(() => zoomToBoundingBox(), 300);
 					});
 			} else if (isFromCookie) {
 				processRouteData(routeIdOrData);
 			} else {
 				console.error("Invalid route data or ID:", routeIdOrData);
-				toast.error(__("Invalid route data. Please try again.", "mmd"));
+				toast.error(__("Invalid route data. Please try again", "mmd"));
 				routeLoadingRef.current = false;
 				setIsLoading(false);
 			}
 		},
-		[mmdObj.apiUrl, mmdObj.nonce, handleMapClick, recalculateDistances]
+		[
+			setIsNewRouteAndRef,
+			setIsRouteEditableAndRef,
+			setAllowRouteEditingAndRef,
+			recalculateDistances,
+			setIsLoading,
+			setIsSaved,
+			geojsonRef,
+			linestringRef,
+			mapRef,
+			setRawFullDistance,
+			setUnits,
+			setPointsOfInterest,
+			handleMapClick,
+			mmdObj.apiUrl,
+			mmdObj.nonce,
+		]
 	);
 
 	const saveRouteToCookie = useCallback(() => {
@@ -297,108 +335,104 @@ const MapBox = ({ mmdObj }) => {
 	}, [geojsonRef, linestringRef, rawFullDistance, units]);
 
 	const toggleRouteEditable = useCallback(() => {
-		console.log(
-			"toggleRouteEditable called - current allowRouteEditing:",
-			allowRouteEditing
-		);
-		if (allowRouteEditing) {
-			setIsRouteEditable((prev) => {
+		if (allowRouteEditingRef.current) {
+			setIsRouteEditableAndRef((prev) => {
 				const newValue = !prev;
-				console.log("toggleRouteEditable - new isRouteEditable:", newValue);
-				if (newValue) {
-					mapRef.current?.on("click", handleMapClick);
-				} else {
-					mapRef.current?.off("click", handleMapClick);
+				if (mapRef.current) {
+					if (newValue) {
+						mapRef.current.on("click", handleMapClick);
+					} else {
+						mapRef.current.off("click", handleMapClick);
+					}
 				}
 				toast.success(
 					newValue
-						? __("Route is now editable.", "mmd")
-						: __("Route is no longer editable.", "mmd"),
+						? __("Route is now editable", "mmd")
+						: __("Route is no longer editable", "mmd"),
 					{
-						toastId: "route-editable",
+						toastId: "is-route-editable",
 					}
 				);
 				return newValue;
 			});
 		} else {
-			console.log("toggleRouteEditable - route is not allowed to be edited");
-			toast.error(__("This route is not editable.", "mmd"), {
-				toastId: "route-not-editable",
+			toast.error(__("This route is not editable", "mmd"), {
+				toastId: "is-route-editable",
 			});
 		}
-	}, [allowRouteEditing, handleMapClick]);
+	}, [setIsRouteEditableAndRef, handleMapClick]);
 
-	const updateMapWithRouteData = useCallback(
-		(routeData) => {
-			setIsRouteEditable(false);
+	// const updateMapWithRouteData = useCallback(
+	// 	(routeData) => {
+	// 		setIsRouteEditable(false);
 
-			geojsonRef.current = {
-				type: "FeatureCollection",
-				features: [
-					...routeData.coordinates.map((coord, index) => ({
-						type: "Feature",
-						geometry: {
-							type: "Point",
-							coordinates: coord,
-						},
-						properties: {
-							markerNumber: index + 1,
-						},
-					})),
-					{
-						type: "Feature",
-						geometry: {
-							type: "LineString",
-							coordinates: routeData.linestring,
-						},
-						properties: {},
-					},
-				],
-			};
+	// 		geojsonRef.current = {
+	// 			type: "FeatureCollection",
+	// 			features: [
+	// 				...routeData.coordinates.map((coord, index) => ({
+	// 					type: "Feature",
+	// 					geometry: {
+	// 						type: "Point",
+	// 						coordinates: coord,
+	// 					},
+	// 					properties: {
+	// 						markerNumber: index + 1,
+	// 					},
+	// 				})),
+	// 				{
+	// 					type: "Feature",
+	// 					geometry: {
+	// 						type: "LineString",
+	// 						coordinates: routeData.linestring,
+	// 					},
+	// 					properties: {},
+	// 				},
+	// 			],
+	// 		};
 
-			linestringRef.current = {
-				type: "Feature",
-				geometry: {
-					type: "LineString",
-					coordinates: routeData.linestring,
-				},
-			};
+	// 		linestringRef.current = {
+	// 			type: "Feature",
+	// 			geometry: {
+	// 				type: "LineString",
+	// 				coordinates: routeData.linestring,
+	// 			},
+	// 		};
 
-			setRawFullDistance(routeData.fullDistance);
-			setUnits(routeData.units);
+	// 		setRawFullDistance(routeData.fullDistance);
+	// 		setUnits(routeData.units);
 
-			if (routeData.coordinates.length > 0) {
-				setLatestLatLng(
-					routeData.coordinates[routeData.coordinates.length - 1]
-				);
-			}
+	// 		if (routeData.coordinates.length > 0) {
+	// 			setLatestLatLng(
+	// 				routeData.coordinates[routeData.coordinates.length - 1]
+	// 			);
+	// 		}
 
-			recalculateDistances();
+	// 		recalculateDistances();
 
-			if (mapRef.current && mapRef.current.getSource("geojson")) {
-				mapRef.current.getSource("geojson").setData(geojsonRef.current);
-			}
-		},
-		[recalculateDistances]
-	);
+	// 		if (mapRef.current && mapRef.current.getSource("geojson")) {
+	// 			mapRef.current.getSource("geojson").setData(geojsonRef.current);
+	// 		}
+	// 	},
+	// 	[recalculateDistances]
+	// );
 
-	const forceZoomToBounds = useCallback(() => {
-		if (
-			mapRef.current &&
-			linestringRef.current.geometry.coordinates.length > 1
-		) {
-			const bounds = new mapboxgl.LngLatBounds();
-			linestringRef.current.geometry.coordinates.forEach((coord) => {
-				bounds.extend(coord);
-			});
+	// const forceZoomToBounds = useCallback(() => {
+	// 	if (
+	// 		mapRef.current &&
+	// 		linestringRef.current.geometry.coordinates.length > 1
+	// 	) {
+	// 		const bounds = new mapboxgl.LngLatBounds();
+	// 		linestringRef.current.geometry.coordinates.forEach((coord) => {
+	// 			bounds.extend(coord);
+	// 		});
 
-			mapRef.current.fitBounds(bounds, {
-				padding: { top: 50, bottom: 50, left: 50, right: 50 },
-				duration: 1000,
-				maxZoom: 15,
-			});
-		}
-	}, []);
+	// 		mapRef.current.fitBounds(bounds, {
+	// 			padding: { top: 50, bottom: 50, left: 50, right: 50 },
+	// 			duration: 1000,
+	// 			maxZoom: 15,
+	// 		});
+	// 	}
+	// }, []);
 
 	const handleToggleSearch = useCallback(() => {
 		setIsSearchOpen((prev) => !prev);
@@ -421,6 +455,7 @@ const MapBox = ({ mmdObj }) => {
 				units: units,
 				bounds: mapRef.current.getBounds().toArray(),
 				allowRouteEditing: allowRouteEditing,
+				pointsOfInterest: pointsOfInterest,
 			};
 
 			setSaveShareAction({ action, routeData });
@@ -434,6 +469,7 @@ const MapBox = ({ mmdObj }) => {
 			userDetails,
 			saveRouteToCookie,
 			showLoginRegisterToast,
+			pointsOfInterest,
 		]
 	);
 
@@ -510,7 +546,7 @@ const MapBox = ({ mmdObj }) => {
 				}
 			);
 		} else {
-			toast.error("Geolocation did not load in your browser.", {
+			toast.error("Geolocation did not load in your browser", {
 				toastId: routeId,
 			});
 			setUserLocation([-74.5, 40]); // Fallback location
@@ -785,14 +821,12 @@ const MapBox = ({ mmdObj }) => {
 	);
 
 	useEffect(() => {
-		if (!mapRef.current) return;
-
-		// Remove existing click listener
-		mapRef.current.off("click", handleMapClick);
-
-		// Only add the click listener if the route is editable
-		if (isRouteEditable) {
-			mapRef.current.on("click", handleMapClick);
+		if (mapRef.current) {
+			if (isRouteEditable) {
+				mapRef.current.on("click", handleMapClick);
+			} else {
+				mapRef.current.off("click", handleMapClick);
+			}
 		}
 
 		return () => {
@@ -961,7 +995,11 @@ const MapBox = ({ mmdObj }) => {
 			setLastDistance(0);
 			setLatestLatLng(null);
 			setIsRouteClosed(false);
-			setIsRouteEditable(true);
+
+			setIsNewRouteAndRef(true);
+			setIsRouteEditableAndRef(true);
+			setAllowRouteEditingAndRef(true);
+			setPointsOfInterest([]);
 
 			// Clear undo/redo history
 			historyRef.current = [];
@@ -973,8 +1011,43 @@ const MapBox = ({ mmdObj }) => {
 				url.searchParams.delete("route");
 				window.history.replaceState({}, "", url.toString());
 			}
+
+			// Clear current position marker
+			if (currentPositionMarkerRef.current) {
+				currentPositionMarkerRef.current.remove();
+				currentPositionMarkerRef.current = null;
+			}
+
+			// Clear POIs
+			setPointsOfInterest([]);
+			Object.values(poiMarkersRef.current).forEach((marker) => marker.remove());
+			poiMarkersRef.current = {};
+
+			// Clear route info
+			setLoadedRouteData(null);
+
+			// Reset slider position
+			setSliderPosition(0);
+
+			// Reset raw distances
+			setRawFullDistance(0);
+			setRawLastDistance(0);
+
+			// Clear any active editing POI
+			setEditingPoi(null);
+
+			// Reset isSaved state
+			setIsSaved(false);
+
+			toast.success(__("Route deleted successfully", "mmd"), {
+				toastId: "route-deleted",
+			});
 		}
-	}, []);
+	}, [
+		setIsNewRouteAndRef,
+		setIsRouteEditableAndRef,
+		setAllowRouteEditingAndRef,
+	]);
 
 	const zoomToBoundingBox = useCallback(() => {
 		if (linestringRef.current.geometry.coordinates.length < 2) return;
@@ -1009,12 +1082,15 @@ const MapBox = ({ mmdObj }) => {
 		handleToggleSaveShare("save");
 	};
 
-	const handleSaveSuccess = useCallback((savedRouteData) => {
-		setIsSaved(true);
-		// Update allowRouteEditing based on the saved data
-		const newAllowRouteEditing = savedRouteData.allowRouteEditing || false;
-		setAllowRouteEditing(newAllowRouteEditing);
-	}, []);
+	const handleSaveSuccess = useCallback(
+		(savedRouteData) => {
+			setIsSaved(true);
+			// Update allowRouteEditing based on the saved data
+			const newAllowRouteEditing = savedRouteData.allowRouteEditing ?? false;
+			setAllowRouteEditingAndRef(newAllowRouteEditing);
+		},
+		[setAllowRouteEditingAndRef]
+	);
 
 	const showLoginRegisterToast = useCallback(() => {
 		toast.info(
@@ -1077,36 +1153,87 @@ const MapBox = ({ mmdObj }) => {
 		[centerOnNewMarker]
 	);
 
-	const updateCurrentPositionMarker = useCallback(
-		(position) => {
-			if (!mapRef.current) return;
-
-			if (!currentPositionMarkerRef.current) {
-				// Create a new marker if it doesn't exist
-				const el = document.createElement("div");
-				el.className = "current-position-marker";
-				currentPositionMarkerRef.current = new mapboxgl.Marker(el)
-					.setLngLat(position)
-					.addTo(mapRef.current);
-
-				// Add click event listener to the marker element
-				el.addEventListener("click", handleCurrentPositionMarkerClick);
-			} else {
-				// Update existing marker position
-				currentPositionMarkerRef.current.setLngLat(position);
-			}
-		},
-		[handleCurrentPositionMarkerClick]
-	);
-
 	/*
 	 * Points of Interest
 	 */
 	const handleCurrentPositionMarkerClick = useCallback((e) => {
 		e.preventDefault();
 		e.stopPropagation();
-		const lngLat = currentPositionMarkerRef.current.getLngLat();
-		setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
+
+		// Only proceed if the user is Premium AND the route is new or editable
+		if (
+			isPremiumUser &&
+			(isNewRouteRef.current ||
+				(isRouteEditableRef.current && allowRouteEditingRef.current))
+		) {
+			const lngLat = currentPositionMarkerRef.current.getLngLat();
+			setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
+		} else {
+			if (!isPremiumUser) {
+				toast.info(__("Points of Interest are a Premium feature", "mmd"), {
+					toastId: "is-route-editable",
+				});
+			}
+			toast.info(__("The route is not editable", "mmd"), {
+				toastId: "is-route-editable",
+			});
+		}
+	}, []);
+
+	const updateCurrentPositionMarker = useCallback(
+		(position) => {
+			if (!mapRef.current) return;
+
+			if (!currentPositionMarkerRef.current) {
+				const el = document.createElement("div");
+				el.className = "current-position-marker";
+				currentPositionMarkerRef.current = new mapboxgl.Marker(el)
+					.setLngLat(position)
+					.addTo(mapRef.current);
+			} else {
+				currentPositionMarkerRef.current.setLngLat(position);
+			}
+
+			const markerElement = currentPositionMarkerRef.current.getElement();
+
+			// Update the marker's appearance based on editability
+			if (
+				isNewRouteRef.current ||
+				(isRouteEditableRef.current && allowRouteEditingRef.current)
+			) {
+				markerElement.style.cursor = "pointer";
+				markerElement.title = __("Click to add a point of interest", "mmd");
+			} else {
+				markerElement.style.cursor = "default";
+				markerElement.title = __("This Route is not editable", "mmd");
+			}
+
+			// Always remove the old click listener
+			markerElement.removeEventListener(
+				"click",
+				handleCurrentPositionMarkerClick
+			);
+
+			// Always add the click listener (the handler will check for editability)
+			markerElement.addEventListener("click", handleCurrentPositionMarkerClick);
+		},
+		[handleCurrentPositionMarkerClick]
+	);
+
+	// Update these functions to set both state and ref
+	const setIsNewRouteAndRef = useCallback((value) => {
+		setIsNewRoute(value);
+		isNewRouteRef.current = value;
+	}, []);
+
+	const setIsRouteEditableAndRef = useCallback((value) => {
+		setIsRouteEditable(value);
+		isRouteEditableRef.current = value;
+	}, []);
+
+	const setAllowRouteEditingAndRef = useCallback((value) => {
+		setAllowRouteEditing(value);
+		allowRouteEditingRef.current = value;
 	}, []);
 
 	const handlePoiSave = useCallback((poi) => {
@@ -1121,9 +1248,12 @@ const MapBox = ({ mmdObj }) => {
 		setEditingPoi(null);
 	}, []);
 
-	const handlePoiEdit = useCallback((poi) => {
-		setEditingPoi(poi);
-	}, []);
+	const handlePoiEdit = useCallback(
+		(poi) => {
+			setEditingPoi(poi);
+		},
+		[loadedRouteData]
+	);
 
 	const handlePoiDelete = useCallback((poiId) => {
 		const confirmDelete = window.confirm(
@@ -1139,88 +1269,145 @@ const MapBox = ({ mmdObj }) => {
 		}
 	}, []);
 
+	const handlePoiClick = useCallback((poiId) => {
+		if (poiMarkersRef.current[poiId]) {
+			const marker = poiMarkersRef.current[poiId];
+			marker.togglePopup();
+
+			// Center the map on the clicked POI
+			mapRef.current.flyTo({
+				center: marker.getLngLat(),
+				zoom: 15,
+				duration: 1000,
+			});
+		}
+	}, []);
+
 	useEffect(() => {
 		if (!mapRef.current) return;
 
-		// Remove existing POI markers
-		Object.values(poiMarkersRef.current).forEach((marker) => marker.remove());
-		poiMarkersRef.current = {};
+		const addPOIMarkers = () => {
+			// Remove existing POI markers
+			Object.values(poiMarkersRef.current).forEach((marker) => marker.remove());
+			poiMarkersRef.current = {};
 
-		// Add new POI markers
-		pointsOfInterest.forEach((poi) => {
-			const el = document.createElement("div");
-			el.className = "mmd-poi-marker";
-			el.innerHTML = "📍";
-			el.title = poi.title;
+			// Add new POI markers
+			// Only add markers if POIs are visible
+			if (arePoisVisible) {
+				pointsOfInterest.forEach((poi) => {
+					const el = document.createElement("div");
+					el.className = "mmd-poi-marker";
+					el.innerHTML = `<span class='poicon fa-solid ${
+						poi.icon || "fa-location-dot"
+					}'></span>`;
+					el.title = poi.title;
 
-			const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-				`<div class="mmd-poi-content">
-                    <h3>${poi.title}</h3>
-                    <p>${poi.description}</p>
-					<div class="mmd-poi-btns">
-                    <button class="poi-btn edit-poi" data-poi-id="${
-											poi.id
-										}">${__("Edit", "mmd")}</button>
-                    <button class="poi-btn delete-poi" data-poi-id="${
-											poi.id
-										}">${__("Delete", "mmd")}</button></div>
-                </div>`
-			);
+					const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+						`<div class="mmd-poi-content">
+						<h3>${poi.title}</h3>
+						<p>${poi.description}</p>
+						${
+							isPremiumUser && isRouteEditableRef.current
+								? `
+						<div class="mmd-poi-btns">
+						<button class="poi-btn edit-poi" data-poi-id="${poi.id}">${__(
+										"Edit",
+										"mmd"
+								  )}</button>
+						<button class="poi-btn delete-poi" data-poi-id="${poi.id}">${__(
+										"Delete",
+										"mmd"
+								  )}</button></div>`
+								: ""
+						}
+					</div>`
+					);
 
-			const marker = new mapboxgl.Marker(el)
-				.setLngLat(poi.lngLat)
-				.setPopup(popup)
-				.addTo(mapRef.current);
+					const marker = new mapboxgl.Marker(el)
+						.setLngLat(poi.lngLat)
+						.setPopup(popup)
+						.addTo(mapRef.current);
 
-			poiMarkersRef.current[poi.id] = marker;
+					poiMarkersRef.current[poi.id] = marker;
 
-			marker.getElement().addEventListener("click", (e) => {
-				e.stopPropagation(); // Prevent the click from propagating to the map
-				marker.togglePopup();
-			});
+					marker.getElement().addEventListener("click", (e) => {
+						e.stopPropagation(); // Prevent the click from propagating to the map
+						marker.togglePopup();
+					});
 
-			// Add event listeners to edit and delete buttons after the popup is added to the DOM
-			popup.on("open", () => {
-				const popupContent = document.querySelector(".mmd-poi-content");
-				if (popupContent) {
-					const editButton = popupContent.querySelector(".edit-poi");
-					const deleteButton = popupContent.querySelector(".delete-poi");
+					// Add event listeners to edit and delete buttons after the popup is added to the DOM
+					popup.on("open", () => {
+						const popupContent = document.querySelector(".mmd-poi-content");
+						if (popupContent) {
+							const editButton = popupContent.querySelector(".edit-poi");
+							const deleteButton = popupContent.querySelector(".delete-poi");
 
-					if (editButton) {
-						editButton.addEventListener("click", (e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							handlePoiEdit(poi);
-							marker.togglePopup(); // Close the popup after clicking edit
-						});
-					}
+							if (editButton) {
+								editButton.addEventListener("click", (e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									handlePoiEdit(poi);
+									marker.togglePopup(); // Close the popup after clicking edit
+								});
+							}
 
-					if (deleteButton) {
-						deleteButton.addEventListener("click", (e) => {
-							e.preventDefault();
-							e.stopPropagation();
-							handlePoiDelete(poi.id);
-						});
-					}
-				}
-			});
-		});
-	}, [pointsOfInterest, handlePoiEdit, handlePoiDelete]);
+							if (deleteButton) {
+								deleteButton.addEventListener("click", (e) => {
+									e.preventDefault();
+									e.stopPropagation();
+									handlePoiDelete(poi.id);
+								});
+							}
+						}
+					});
+				});
+			}
+		};
+
+		// Debounce the addPOIMarkers function
+		const debouncedAddPOIMarkers = debounce(addPOIMarkers, 300);
+
+		debouncedAddPOIMarkers();
+
+		return () => {
+			// Clean up markers when component unmounts or pointsOfInterest changes
+			Object.values(poiMarkersRef.current).forEach((marker) => marker.remove());
+		};
+	}, [
+		pointsOfInterest,
+		loadedRouteData,
+		isRouteEditable,
+		allowRouteEditing,
+		isNewRoute,
+		userDetails,
+		handlePoiEdit,
+		handlePoiDelete,
+		arePoisVisible,
+	]);
 
 	useEffect(() => {
 		if (currentPositionMarkerRef.current) {
-			currentPositionMarkerRef.current
-				.getElement()
-				.addEventListener("click", handleCurrentPositionMarkerClick);
+			const markerElement = currentPositionMarkerRef.current.getElement();
+
+			markerElement.addEventListener("click", handleCurrentPositionMarkerClick);
+
+			return () => {
+				markerElement.removeEventListener(
+					"click",
+					handleCurrentPositionMarkerClick
+				);
+			};
 		}
-		return () => {
-			if (currentPositionMarkerRef.current) {
-				currentPositionMarkerRef.current
-					.getElement()
-					.removeEventListener("click", handleCurrentPositionMarkerClick);
-			}
-		};
-	}, [handleCurrentPositionMarkerClick]);
+	}, [
+		handleCurrentPositionMarkerClick,
+		isNewRoute,
+		isRouteEditable,
+		allowRouteEditing,
+	]);
+
+	const togglePoiVisibility = useCallback(() => {
+		setArePoisVisible((prevVisible) => !prevVisible);
+	}, []);
 
 	return (
 		<>
@@ -1256,6 +1443,9 @@ const MapBox = ({ mmdObj }) => {
 				}
 				onSliderChange={handleSliderChange}
 				pointsOfInterest={pointsOfInterest}
+				arePoisVisible={arePoisVisible}
+				onPoiClick={handlePoiClick}
+				onTogglePoiVisibility={togglePoiVisibility}
 			/>
 			{editingPoi && (
 				<PoiForm

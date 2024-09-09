@@ -100,8 +100,13 @@ body.mmd-box-hide .mmd-boxwrap {
 	background-color: #596166;
 	color: #fff;
 	padding: 5px;
+	width: 25px;
+	height: 25px;
 	margin: 0 2.5px;
 	font-size: 15px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
 	cursor: pointer;
 }
 .mmd-control:first-child {
@@ -119,7 +124,8 @@ body.mmd-box-hide .mmd-boxwrap {
 }
 
 .mmd-control.center-on-new.active,
-.mmd-control.snapto.active {
+.mmd-control.snapto.active,
+.mmd-poi-controls .mmd-control.active {
 	background-color: #2e9632;
 	color: white;
 }
@@ -216,7 +222,7 @@ body.mmd-box-hide .mmd-boxwrap {
 	margin: 8px 0 0;
 	position: relative;
 	z-index: 11;
-	padding: 10px 10px 12px;
+	padding: 10px 12px 12px;
 }
 .mmd-rdata-title {
 	margin: 0 0 8px;
@@ -256,6 +262,12 @@ body.mmd-box-hide .mmd-boxwrap {
 	border-radius: 50%;
 	border: 2px solid #ffffff;
 	cursor: pointer;
+	z-index: 20;
+}
+.current-position-marker.non-editable {
+	background-color: #d31212;
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 .mmd-route-slider {
 	position: absolute;
@@ -354,24 +366,40 @@ body.mmd-box-hide .mmd-boxwrap {
 }
 
 /* -- Points of Interest -- */
+.mmd-popup.poiform {
+	max-width: 475px;
+	min-width: 470px;
+}
+.mmd-popup.poiform .mmd-popup-inner > p {
+	font-size: 13px;
+}
 .mmd-poi-marker {
+	background-color: #fff;
+	box-shadow: 0 1px 3px rgb(0 0 0 / 35%);
+	border-radius: 20px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 16px;
+	padding: 5px;
+	width: 30px;
+	height: 30px;
 	cursor: pointer;
-	font-size: 24px;
 }
 .mapboxgl-popup-content {
 	width: fit-content;
 	padding: 0;
 }
 .mapboxgl-popup-content button.mapboxgl-popup-close-button {
-	background-color: #fff;
-	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15), 0 1px 4px rgb(0 0 0 / 5%);
+	background-color: #fff !important;
+	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.15), 0 1px 4px rgb(0 0 0 / 5%) !important;
 	border: 0;
 	border-radius: 20px;
 	margin: 0;
 	padding: 0;
-	color: #898989;
-	width: 25px;
-	height: 25px;
+	color: #898989 !important;
+	width: 20px;
+	height: 20px;
 	font-weight: 600;
 	display: flex;
 	align-items: center;
@@ -384,8 +412,8 @@ body.mmd-box-hide .mmd-boxwrap {
 	right: 5px;
 }
 .mapboxgl-popup-content button.mapboxgl-popup-close-button:hover {
-	background-color: #f7f7f7;
-	color: #000;
+	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 1), 0 1px 4px rgb(0 0 0 / 5%) !important;
+	color: #000 !important;
 }
 .mmd-poi-form {
 	position: absolute;
@@ -450,4 +478,116 @@ body.mmd-box-hide .mmd-boxwrap {
 }
 .mmd-poi-content .mmd-poi-btns button.poi-btn:hover {
 	color: #2e9632 !important;
+}
+.poiform-icon {
+	display: flex;
+	align-items: center;
+}
+.poiform-icon select#poi-icon {
+	border: 1px solid #d8d8d8;
+	margin: 0;
+	padding: 8px 5px;
+	font-size: 13px;
+	flex: 1;
+}
+.poiform-icon .poiform-icon-preview {
+	width: 70px;
+	text-align: center;
+	padding: 2px 5px 2px 5px;
+	font-size: 20px;
+}
+.poiform-icon .poiform-icon-preview .poicon {
+	text-shadow: 0 1px 6px rgba(0, 0, 0, 0.25);
+}
+/* -- POI Controls -- */
+.mmd-pois {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin: 8px 0 0;
+}
+ul.mmd-poi-list {
+	margin: 0;
+	padding: 0 0 0 2px;
+	display: flex;
+}
+ul.mmd-poi-list li.mmd-poi-marker {
+	font-size: 13px;
+	width: 22px;
+	height: 22px;
+	margin: 0 4px 0 0;
+	padding: 0;
+}
+.mmd-poi-controls {
+	padding: 0 2px 0 0;
+}
+.mmd-poi-controls .mmd-control {
+	font-size: 12px;
+	width: 22px;
+	height: 22px;
+	padding: 2px;
+}
+/* -- Marker Colors -- */
+.poicon.fa-heart {
+	color: #ff4136;
+}
+.poicon.fa-star,
+.poicon.fa-lightbulb {
+	color: #ffd600;
+}
+.poicon.fa-flag {
+	color: #2ecc40;
+}
+.poicon.fa-location-dot,
+.poicon.fa-fish {
+	color: #03a9f4;
+}
+.poicon.fa-info-circle,
+.poicon.fa-circle-question,
+.poicon.fa-water {
+	color: #0a7bd4;
+}
+.poicon.fa-camera,
+.poicon.fa-flag-checkered {
+	color: #0c0c0c;
+}
+.poicon.fa-coffee {
+	color: #795548;
+}
+.poicon.fa-utensils,
+.poicon.fa-campground,
+.poicon.fa-restroom {
+	color: #ff851b;
+}
+.poicon.fa-person-running,
+.poicon.fa-person-biking,
+.poicon.fa-person-swimming,
+.poicon.fa-person-hiking {
+	color: #1a3356;
+}
+.poicon.fa-mountain-sun {
+	color: #305619;
+}
+.poicon.fa-dove {
+	color: #b0b7b4;
+}
+.poicon.fa-binoculars {
+	color: #690d39;
+}
+.poicon.fa-tree {
+	color: #12a022;
+}
+.poicon.fa-parking {
+	color: #2f2f2f;
+}
+.poicon.fa-triangle-exclamation,
+.poicon.fa-skull-crossbones,
+.poicon.fa-circle-xmark,
+.poicon.fa-suitcase-medical,
+.poicon.fa-truck-medical {
+	color: #ff4136;
+}
+.poicon.fa-landmark,
+.poicon.fa-monument {
+	color: #001f3f;
 }

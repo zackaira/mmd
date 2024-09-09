@@ -28,6 +28,10 @@ const MapBoxControls = ({
 	sliderPosition,
 	routeLength,
 	onSliderChange,
+	pointsOfInterest,
+	arePoisVisible,
+	onPoiClick,
+	onTogglePoiVisibility,
 }) => {
 	const [isBoxHidden, setIsBoxHidden] = useState(false);
 
@@ -229,11 +233,12 @@ const MapBoxControls = ({
 				)}
 
 				{routeData && (
-					<div className="mmd-rdata">
-						<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
-						<p className="mmd-rdata-desc">{routeData.description}</p>
+					<>
+						<div className="mmd-rdata">
+							<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
+							<p className="mmd-rdata-desc">{routeData.description}</p>
 
-						{/* <div className="mmd-rdata-btns">
+							{/* <div className="mmd-rdata-btns">
 							<a href="" target="_blank" className="button mmd-rdata-btn">
 								{__("View Event Website", "mmd")}
 							</a>
@@ -241,7 +246,37 @@ const MapBoxControls = ({
 								{__("Enter This Event", "mmd")}
 							</a>
 						</div> */}
-					</div>
+						</div>
+
+						{pointsOfInterest && pointsOfInterest.length > 0 && (
+							<div className="mmd-pois">
+								<ul className="mmd-poi-list">
+									{pointsOfInterest.map((poi) => (
+										<li
+											key={poi.id}
+											className="mmd-poi-marker"
+											onClick={() => onPoiClick(poi.id)}
+										>
+											<span
+												className={`poicon fa-solid ${
+													poi.icon || "fa-location-dot"
+												}`}
+											></span>
+										</li>
+									))}
+								</ul>
+								<div className="mmd-poi-controls">
+									<div
+										className={`fa-solid fa-map-pin mmd-control poi-toggle ${
+											arePoisVisible ? "active" : ""
+										}`}
+										onClick={onTogglePoiVisibility}
+										title={__("Toggle Points of Interest", "mmd")}
+									></div>
+								</div>
+							</div>
+						)}
+					</>
 				)}
 			</div>
 		</>

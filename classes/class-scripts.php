@@ -63,6 +63,7 @@ class MapMyDistance {
 		// MMD Frontend
 		wp_register_style('mmd-frontend-style', esc_url(MMD_PLUGIN_URL . 'dist/frontend' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
 		// wp_register_script('mmd-frontend-script', esc_url(MMD_PLUGIN_URL . 'dist/frontend' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
+		
 		// MMD Map Page
 		wp_register_style('mmd-map-style', esc_url(MMD_PLUGIN_URL . 'dist/mmd' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
 		wp_register_script('mmd-map-script', esc_url(MMD_PLUGIN_URL . 'dist/mmd' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
@@ -103,6 +104,8 @@ class MapMyDistance {
 		// Retrieve user details
 		if ( is_user_logged_in() ) {
 			$user_id = get_current_user_id();
+			$isPremium = true;
+
 			$user_details = array(
 				'user_id'    => $user_id,
 				'first_name' => get_user_meta( $user_id, 'billing_first_name', true ),
@@ -110,6 +113,7 @@ class MapMyDistance {
 				'country'    => get_user_meta( $user_id, 'billing_country', true ),
 				'activities' => get_user_meta( $user_id, 'activities', true ),
 				'units'      => get_user_meta( $user_id, 'units', true ),
+				'isPremium'  => $isPremium,
 			);
 		} else {
 			$user_details = false;
