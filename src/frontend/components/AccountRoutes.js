@@ -47,7 +47,7 @@ const AccountRoutes = ({ mmdObj }) => {
 				}
 			} catch (error) {
 				console.error("Failed to fetch routes:", error);
-				toast.error(__("Failed to load routes. Please try again.", "mmd"));
+				// toast.error(__("Failed to load routes. Please try again.", "mmd"));
 			} finally {
 				setIsLoading(false);
 			}

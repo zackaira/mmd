@@ -11,6 +11,19 @@ class MapMyDistance_Rest_Routes {
 	 * Create REST API routes for get & save
 	 */
 	public function mmd_create_rest_routes() {
+		// Signup Username Check
+		register_rest_route('mmd-api/v1', '/check-username/(?P<username>[a-zA-Z0-9\.\-]+)', array(
+			'methods' => 'GET',
+			'callback' => [$this, 'mmd_check_username_availability'],
+			'permission_callback' => [$this, 'mmd_get_settings_permission'],
+			'args' => array(
+				'username' => array(
+					'validate_callback' => function($param, $request, $key) {
+						return preg_match('/^[a-zA-Z0-9\.\-]+$/', $param);
+					}
+				),
+			),
+		));
 		// Plugin Settings
 		register_rest_route('mmd-api/v1', '/settings', [
 			'methods' => 'GET',
@@ -88,6 +101,37 @@ class MapMyDistance_Rest_Routes {
 			'callback' => [$this, 'mmd_get_user_stats'],
 			'permission_callback' => [$this, 'mmd_admin_permissions_check'],
 		]);
+	}
+
+	/*
+	 * Check Username Availability
+	 */
+	public function mmd_check_username_availability( $request ) {
+		global $wpdb;
+		$username = $request->get_param( 'username' );
+		
+		if ( empty( $username ) ) {
+			return new WP_Error( 'empty_username', 'Username cannot be empty', array( 'status' => 400 ) );
+		}
+
+		if (!preg_match('/^[a-zA-Z0-9\.\-]+$/', $username)) {
+			return new WP_Error('invalid_username', 'Username can only contain letters, numbers, dots, and hyphens.', array('status' => 400));
+		}
+
+		// Sanitize the username
+		$username = sanitize_user( $username );
+
+		// Perform a direct SQL query
+		$query = $wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->users} WHERE user_login = %s",
+			$username
+		);
+		
+		$user_count = $wpdb->get_var( $query );
+		
+		return array(
+			'available' => $user_count == 0
+		);
 	}
 
 	/*

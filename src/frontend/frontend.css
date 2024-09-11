@@ -264,6 +264,9 @@ body.woocommerce-account .mmd-popup h3 {
 	margin: 0 4px 0 0;
 }
 /* -- Toggle Switch -- */
+.toggle-switch-container {
+	margin: 0 0 30px;
+}
 .toggle-switch {
 	position: relative;
 	display: inline-block;

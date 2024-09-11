@@ -1,3 +1,58 @@
+body.woocommerce-account .woocommerce-form-register #reg_username {
+	border: 1px solid transparent;
+	transition: border 0.3s ease-in-out 0s;
+}
+.username-status {
+	position: relative;
+}
+.username-status span.status {
+	font-size: 12px;
+	letter-spacing: 0.3px;
+	position: absolute;
+	top: -41px;
+	right: 10px;
+}
+.username-status span.available {
+	color: #20b126;
+}
+.username-status span.not-available {
+	color: #cd1616;
+}
+.username-status .mmd-loader-wrap {
+	position: absolute;
+	right: 10px;
+	top: -46px;
+}
+.username-status .mmd-loader-wrap .mmd-loader-sector {
+	border-width: 2px;
+}
+
+body.woocommerce-account .woocommerce-MyAccount-content .disabled-input {
+	position: relative;
+	margin: -10px 0 30px;
+}
+body.woocommerce-account .woocommerce-MyAccount-content .disabled-input input {
+	color: var(--forms-fields-normal-color, #69727d);
+	border-radius: var(--forms-fields-border-radius, 0);
+	padding: var(--forms-fields-padding, 16px);
+	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 14%);
+	background: #efefef;
+	border: none;
+	font-size: 14px;
+}
+body.woocommerce-account
+	.woocommerce-MyAccount-content
+	.disabled-input::before {
+	background-color: rgb(255 255 255 / 48%);
+	display: block;
+	content: "";
+	position: absolute;
+	top: -2px;
+	right: -2px;
+	left: -2px;
+	bottom: -2px;
+}
+/* -- Account -- */
 .mmd-routes h3 {
 	font-size: 26px;
 	text-align: center;

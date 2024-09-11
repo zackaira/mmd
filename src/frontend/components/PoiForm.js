@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { __ } from "@wordpress/i18n";
 
 const PoiForm = ({ poi, onSave, onCancel }) => {
 	const [title, setTitle] = useState(poi?.title || "");
 	const [description, setDescription] = useState(poi?.description || "");
 	const [icon, setIcon] = useState(poi?.icon || "fa-location-dot");
+	const titleInputRef = useRef(null);
+
+	useEffect(() => {
+		if (titleInputRef.current) {
+			titleInputRef.current.focus();
+		}
+	}, []);
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
@@ -73,18 +80,15 @@ const PoiForm = ({ poi, onSave, onCancel }) => {
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
 								required
+								ref={titleInputRef}
 							/>
 						</div>
 						<div className="mmd-form-row">
-							<label>
-								{__("Description", "mmd")}
-								<span className="required">*</span>
-							</label>
+							<label>{__("Description", "mmd")}</label>
 							<textarea
 								value={description}
 								onChange={(e) => setDescription(e.target.value)}
 								rows={5}
-								required
 							/>
 						</div>
 						<div className="mmd-form-row">

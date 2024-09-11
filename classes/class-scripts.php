@@ -70,6 +70,7 @@ class MapMyDistance {
 
 		// MMD User Account Routes Page
 		wp_register_style('mmd-user-account-style', esc_url(MMD_PLUGIN_URL . 'dist/user-account' . $suffix . '.css'), array('mmd-fontawesome'), MMD_PLUGIN_VERSION);
+		wp_register_script('mmd-usercheck-script', esc_url(MMD_PLUGIN_URL . 'dist/user-check' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
 		wp_register_script('mmd-user-account-script', esc_url(MMD_PLUGIN_URL . 'dist/user-account' . $suffix . '.js'), array(), MMD_PLUGIN_VERSION);
 
 		// Settings JS
@@ -136,6 +137,14 @@ class MapMyDistance {
 
 		// User Account - Routes Page
 		if ( is_account_page() ) {
+			if (!is_user_logged_in()) {
+				wp_enqueue_script('mmd-usercheck-script');
+				wp_localize_script('mmd-usercheck-script', 'mmdUCObj', array(
+					'apiUrl' => esc_url(get_rest_url()),
+					'nonce' => wp_create_nonce('wp_rest'),
+				));
+			}
+
 			wp_enqueue_style('mmd-user-account-style');
 			wp_enqueue_script('mmd-user-account-script');
 			wp_localize_script('mmd-user-account-script', 'mmdAccountObj', array(

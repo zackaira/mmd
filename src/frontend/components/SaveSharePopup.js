@@ -28,33 +28,54 @@ const SaveSharePopup = ({
 	const scrollableRef = useRef(null);
 	const [hasSavedRoute, setHasSavedRoute] = useState(false);
 	const [isEditable, setIsEditable] = useState(false);
+	const [isEditing, setIsEditing] = useState(false);
+	const [existingRouteId, setExistingRouteId] = useState(null);
 
 	const activities = userDetails?.activities || [];
+
+	const [isSharedRoute, setIsSharedRoute] = useState(false);
+	const [originalCreator, setOriginalCreator] = useState(null);
 
 	useEffect(() => {
 		setActiveTab(action);
 	}, [action]);
 
 	useEffect(() => {
-		if (isOpen || hasSavedRoute) {
-			setRouteName("");
-			setDescription("");
-			setTags([]);
-			setActivity("");
-			setIsEditable(false);
-			setAllowRouteEditing(false);
-
-			if (hasSavedRoute) {
-				setActiveTab("share");
-				if (scrollableRef.current) {
-					scrollableRef.current.scrollTop = 0;
-				}
-				setHasSavedRoute(false);
+		if (isOpen) {
+			if (routeData) {
+				// Populate form with existing route data for editing
+				setRouteName(routeData.routeName || "");
+				setDescription(routeData.description || "");
+				setTags(routeData.tags || []);
+				setActivity(routeData.activity || "");
+				setIsEditable(routeData.allowRouteEditing || false);
+				setAllowRouteEditing(routeData.allowRouteEditing || false);
+				setExistingRouteId(routeData.route_id || null);
+				setIsSharedRoute(
+					routeData.originalCreator &&
+						routeData.originalCreator !== userDetails.id
+				);
+				setOriginalCreator(routeData.originalCreator || null);
+				setIsEditing(!!routeData.route_id);
+				setRouteUrl(
+					routeData.routeUrl || `${mmdObj.siteUrl}/?route=${routeData.route_id}`
+				);
 			} else {
-				setActiveTab(action);
+				// Reset form for new route
+				setRouteName("");
+				setDescription("");
+				setTags([]);
+				setActivity("");
+				setIsEditable(false);
+				setAllowRouteEditing(false);
+				setExistingRouteId(null);
+				setIsEditing(false);
+				setIsSharedRoute(false);
+				setOriginalCreator(null);
+				setRouteUrl("");
 			}
 		}
-	}, [isOpen, action, hasSavedRoute]);
+	}, [isOpen, routeData, userDetails, setAllowRouteEditing, mmdObj.siteUrl]);
 
 	if (!isOpen) return null;
 
@@ -72,9 +93,30 @@ const SaveSharePopup = ({
 			return;
 		}
 
+		let endpoint;
+		let method;
+
+		if (isSharedRoute && isEditable) {
+			// Shared route that's editable - update the existing route
+			endpoint = `${mmdObj.apiUrl}mmd-api/v1/update-route/${existingRouteId}`;
+			method = "PUT";
+		} else if (isSharedRoute && !isEditable) {
+			// Shared route that's not editable - save as a new route
+			endpoint = `${mmdObj.apiUrl}mmd-api/v1/save-route`;
+			method = "POST";
+		} else if (isEditing) {
+			// Editing own route
+			endpoint = `${mmdObj.apiUrl}mmd-api/v1/update-route/${existingRouteId}`;
+			method = "PUT";
+		} else {
+			// New route
+			endpoint = `${mmdObj.apiUrl}mmd-api/v1/save-route`;
+			method = "POST";
+		}
+
 		try {
-			const response = await fetch(`${mmdObj.apiUrl}mmd-api/v1/save-route`, {
-				method: "POST",
+			const response = await fetch(endpoint, {
+				method: method,
 				headers: {
 					"Content-Type": "application/json",
 					"X-WP-Nonce": mmdObj.nonce,
@@ -88,13 +130,14 @@ const SaveSharePopup = ({
 						...routeData,
 						allowRouteEditing,
 						pointsOfInterest: routeData.pointsOfInterest || [],
+						originalCreator: isSharedRoute ? originalCreator : userDetails.id,
 					},
 					distance,
 				}),
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to save route");
+				throw new Error("Failed to save/update route");
 			}
 
 			const data = await response.json();
@@ -114,10 +157,17 @@ const SaveSharePopup = ({
 				scrollableRef.current.scrollTop = 0;
 			}
 
-			toast.success(__("Route saved successfully!", "mmd"));
+			const successMessage =
+				isSharedRoute && !isEditable
+					? __("Shared route saved as a new route!", "mmd")
+					: isEditing
+					? __("Route updated successfully!", "mmd")
+					: __("Route saved successfully!", "mmd");
+
+			toast.success(successMessage);
 		} catch (error) {
 			setIsLoading(false);
-			toast.error(__("Failed to save route, please try again", "mmd"));
+			toast.error(__("Failed to save/update route, please try again", "mmd"));
 		}
 	};
 
@@ -177,6 +227,8 @@ const SaveSharePopup = ({
 										onSubmit={saveRoute}
 										allowRouteEditing={allowRouteEditing}
 										setAllowRouteEditing={setAllowRouteEditing}
+										isSharedRoute={isSharedRoute}
+										isEditing={isEditing}
 									/>
 								)}
 								{activeTab === "share" && (

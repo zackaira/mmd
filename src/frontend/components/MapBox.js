@@ -68,7 +68,7 @@ const MapBox = ({ mmdObj }) => {
 	const [isNewRoute, setIsNewRoute] = useState(true);
 	const [isRouteEditable, setIsRouteEditable] = useState(true);
 	const [isRouteClosed, setIsRouteClosed] = useState(false);
-	const [allowRouteEditing, setAllowRouteEditing] = useState(true);
+	const [allowRouteEditing, setAllowRouteEditing] = useState(false);
 
 	const [userDetails, setUserDetails] = useState(mmdObj?.userDetails || null);
 	const [isPremiumUser, setIsPremiumUser] = useState(
@@ -456,6 +456,15 @@ const MapBox = ({ mmdObj }) => {
 				bounds: mapRef.current.getBounds().toArray(),
 				allowRouteEditing: allowRouteEditing,
 				pointsOfInterest: pointsOfInterest,
+				// Include additional fields from loadedRouteData if editing an existing route
+				...(loadedRouteData && {
+					routeName: loadedRouteData.routeName,
+					description: loadedRouteData.description,
+					tags: loadedRouteData.tags,
+					activity: loadedRouteData.activity,
+					route_id: loadedRouteData.route_id,
+					originalCreator: loadedRouteData.originalCreator,
+				}),
 			};
 
 			setSaveShareAction({ action, routeData });
@@ -470,6 +479,8 @@ const MapBox = ({ mmdObj }) => {
 			saveRouteToCookie,
 			showLoginRegisterToast,
 			pointsOfInterest,
+			allowRouteEditing,
+			loadedRouteData,
 		]
 	);
 
@@ -940,8 +951,25 @@ const MapBox = ({ mmdObj }) => {
 			} else {
 				setLatestLatLng(null);
 			}
+
+			// Remove the current position marker
+			if (currentPositionMarkerRef.current) {
+				currentPositionMarkerRef.current.remove();
+				currentPositionMarkerRef.current = null;
+			}
+
+			// Reset slider position
+			setSliderPosition(0);
+
+			// Remove POIs associated with removed segments
+			const currentLineString = linestringRef.current.geometry.coordinates;
+			setPointsOfInterest((prevPois) =>
+				prevPois.filter(
+					(poi) => poi.segmentIndex < currentLineString.length - 1
+				)
+			);
 		}
-	}, [saveState, restoreState, recalculateDistances]);
+	}, [saveState, restoreState, recalculateDistances, setSliderPosition]);
 
 	const handleRedo = useCallback(() => {
 		if (futureRef.current.length > 0) {
@@ -1239,13 +1267,44 @@ const MapBox = ({ mmdObj }) => {
 	const handlePoiSave = useCallback((poi) => {
 		setPointsOfInterest((prevPois) => {
 			if (poi.id) {
-				return prevPois.map((p) => (p.id === poi.id ? poi : p));
+				return prevPois.map((p) =>
+					p.id === poi.id
+						? { ...poi, segmentIndex: getSegmentIndex(poi.lngLat) }
+						: p
+				);
 			} else {
-				const newPoi = { ...poi, id: Date.now() };
+				const newPoi = {
+					...poi,
+					id: Date.now(),
+					segmentIndex: getSegmentIndex(poi.lngLat),
+				};
 				return [...prevPois, newPoi];
 			}
 		});
 		setEditingPoi(null);
+	}, []);
+
+	const getSegmentIndex = useCallback((poiCoords) => {
+		const lineString = linestringRef.current.geometry.coordinates;
+		let minDistance = Infinity;
+		let segmentIndex = -1;
+
+		for (let i = 0; i < lineString.length - 1; i++) {
+			const start = turf.point(lineString[i]);
+			const end = turf.point(lineString[i + 1]);
+			const line = turf.lineString([lineString[i], lineString[i + 1]]);
+			const point = turf.point(poiCoords);
+
+			const snapped = turf.nearestPointOnLine(line, point);
+			const distance = turf.distance(point, snapped);
+
+			if (distance < minDistance) {
+				minDistance = distance;
+				segmentIndex = i;
+			}
+		}
+
+		return segmentIndex;
 	}, []);
 
 	const handlePoiEdit = useCallback(

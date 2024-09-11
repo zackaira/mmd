@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { __ } from "@wordpress/i18n";
 import InputToggleSwitch from "../../backend/components/inputs/InputToggleSwitch";
 
@@ -17,10 +17,32 @@ const SaveEditForm = ({
 	allowRouteEditing,
 	setAllowRouteEditing,
 	popupTitle,
+	isSharedRoute,
+	isEditing,
 }) => {
+	const routeNameRef = useRef(null);
+
+	useEffect(() => {
+		if (routeNameRef.current) {
+			routeNameRef.current.focus();
+		}
+	}, []);
+
 	return (
 		<div className="content save">
-			<h3>{popupTitle ? popupTitle : __("Save Your Route:", "mmd")}</h3>
+			<h3>
+				{popupTitle ? (
+					popupTitle
+				) : (
+					<>
+						{isSharedRoute && !isEditing
+							? __("Save Shared Route:", "mmd")
+							: isEditing
+							? __("Edit Your Route:", "mmd")
+							: __("Save Your Route:", "mmd")}
+					</>
+				)}
+			</h3>
 			<p>
 				{__(
 					"Save your route to track progress, revisit favorite trails, and easily plan future adventures. It's a simple way to keep your experiences organized and ready for your next challenge.",
@@ -38,18 +60,15 @@ const SaveEditForm = ({
 						value={routeName}
 						onChange={(e) => setRouteName(e.target.value)}
 						required
+						ref={routeNameRef}
 					/>
 				</div>
 				<div className="mmd-form-row">
-					<label>
-						{__("Description", "mmd")}
-						<span className="required">*</span>
-					</label>
+					<label>{__("Description", "mmd")}</label>
 					<textarea
 						value={description}
 						onChange={(e) => setDescription(e.target.value)}
 						rows={4}
-						required
 					></textarea>
 				</div>
 				<div className="mmd-form-row">
@@ -103,18 +122,25 @@ const SaveEditForm = ({
 				)}
 				<div className="mmd-form-row">
 					<div className="toggle-switch-container">
-						<span className="toggle-switch-label">
+						<label className="toggle-switch-label" htmlFor="route-editable">
 							{__("Allow anyone to edit this route", "mmd")}
-						</span>
+						</label>
 						<InputToggleSwitch
 							slug="route-editable"
+							id="route-editable"
 							title="Allow anyone to edit this route"
 							value={allowRouteEditing}
 							onChange={() => setAllowRouteEditing(!allowRouteEditing)}
 						/>
 					</div>
 				</div>
-				<button type="submit">{__("Save Route", "mmd")}</button>
+				<button type="submit">
+					{isSharedRoute && !isEditing
+						? __("Save as New Route", "mmd")
+						: isEditing
+						? __("Update Route", "mmd")
+						: __("Save Route", "mmd")}
+				</button>
 			</form>
 		</div>
 	);
