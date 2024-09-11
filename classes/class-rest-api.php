@@ -240,7 +240,7 @@ class MapMyDistance_Rest_Routes {
 	
 		$user_id = get_current_user_id();
 		$route_name = sanitize_text_field($params['routeName']);
-		$route_description = sanitize_textarea_field($params['description']);
+		$route_description = $params['description'];
 		$route_tags = sanitize_text_field(implode(',', $params['tags']));
 		$route_activity = sanitize_text_field($params['activity']);
 		$distance = floatval($params['distance']);

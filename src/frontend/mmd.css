@@ -25,6 +25,8 @@ body.mmd-box-hide .mmd-boxwrap {
 	font-size: 13px;
 	position: relative;
 	z-index: 11;
+	max-width: 298px;
+	min-width: 298px;
 }
 .mmd-box-toggle {
 	position: absolute;
@@ -223,6 +225,8 @@ body.mmd-box-hide .mmd-boxwrap {
 	position: relative;
 	z-index: 11;
 	padding: 10px 12px 12px;
+	max-width: 298px;
+	min-width: 298px;
 }
 .mmd-rdata-title {
 	margin: 0 0 8px;
@@ -590,4 +594,14 @@ ul.mmd-poi-list li.mmd-poi-marker {
 .poicon.fa-landmark,
 .poicon.fa-monument {
 	color: #001f3f;
+}
+
+/* -- Elevation Profile -- */
+.mmd-elevation-profile {
+	position: absolute;
+	bottom: 12px;
+	left: 12px;
+	z-index: 31;
+	padding: 10px 12px;
+	font-size: 14px;
 }

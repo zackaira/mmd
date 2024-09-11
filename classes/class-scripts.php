@@ -99,13 +99,14 @@ class MapMyDistance {
 		$mmdOptions = $mmdSavedOptions ? json_decode($mmdSavedOptions) : '';
 		$current_url = $_SERVER['REQUEST_URI'];
 
+		$isPremium = true;
+
 		// Frontend Styling
 		wp_enqueue_style('mmd-frontend-style');
 
 		// Retrieve user details
 		if ( is_user_logged_in() ) {
 			$user_id = get_current_user_id();
-			$isPremium = true;
 
 			$user_details = array(
 				'user_id'    => $user_id,
@@ -152,6 +153,7 @@ class MapMyDistance {
 				'apiUrl' => esc_url(get_rest_url()),
 				'nonce' => wp_create_nonce('wp_rest'),
 				'userDetails' => $user_details,
+				'isPremium'  => $isPremium,
 			));
 		}
 	} // End mmd_frontend_scripts ()

@@ -7,6 +7,7 @@ import SaveEditForm from "./SaveEditForm";
 
 const SaveSharePopup = ({
 	mmdObj,
+	isPremiumUser,
 	isOpen,
 	onClose,
 	userDetails,
@@ -17,6 +18,7 @@ const SaveSharePopup = ({
 	isSaved,
 	allowRouteEditing,
 	setAllowRouteEditing,
+	zoomToBoundingBox,
 }) => {
 	const [activeTab, setActiveTab] = useState(action);
 	const [routeName, setRouteName] = useState("");
@@ -42,6 +44,9 @@ const SaveSharePopup = ({
 
 	useEffect(() => {
 		if (isOpen) {
+			// Trigger zoom to bounds when popup is opened
+			zoomToBoundingBox();
+
 			if (routeData) {
 				// Populate form with existing route data for editing
 				setRouteName(routeData.routeName || "");
@@ -83,7 +88,7 @@ const SaveSharePopup = ({
 		setActiveTab(tab);
 	};
 
-	const saveRoute = async (e) => {
+	const saveRoute = async (e, formData) => {
 		e.preventDefault();
 		setIsLoading(true);
 
@@ -122,13 +127,10 @@ const SaveSharePopup = ({
 					"X-WP-Nonce": mmdObj.nonce,
 				},
 				body: JSON.stringify({
-					routeName,
-					description,
-					tags,
-					activity,
+					...formData,
 					routeData: {
 						...routeData,
-						allowRouteEditing,
+						allowRouteEditing: formData.allowRouteEditing,
 						pointsOfInterest: routeData.pointsOfInterest || [],
 						originalCreator: isSharedRoute ? originalCreator : userDetails.id,
 					},
@@ -148,9 +150,15 @@ const SaveSharePopup = ({
 				pointsOfInterest: routeData.pointsOfInterest || [],
 			});
 			setIsLoading(false);
-			setRouteUrl(`${mmdObj.siteUrl}/?route=${data.route_id}`);
+
+			const newRouteUrl = `${mmdObj.siteUrl}/?route=${data.route_id}`;
+			setRouteUrl(newRouteUrl);
+
 			setHasSavedRoute(true);
 			setActiveTab("share");
+
+			// Update the URL in the browser
+			// window.history.pushState({}, "", newRouteUrl);
 
 			// Scroll to top of the popup
 			if (scrollableRef.current) {
@@ -214,6 +222,7 @@ const SaveSharePopup = ({
 							<div className="mmd-contents">
 								{activeTab === "save" && (
 									<SaveEditForm
+										isPremiumUser={isPremiumUser}
 										routeName={routeName}
 										setRouteName={setRouteName}
 										description={description}

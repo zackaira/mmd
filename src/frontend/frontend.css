@@ -313,3 +313,29 @@ body.woocommerce-account .mmd-popup h3 {
 	+ .toggle-switch-slider:before {
 	transform: translateX(16px);
 }
+/* -- MMD Trix Editor-- */
+trix-toolbar .trix-button-row {
+	padding: 0 3px;
+}
+trix-toolbar .trix-button-row .trix-button-group {
+	border-radius: 4px 4px 0 0;
+	border-bottom: 0;
+	margin: 0;
+}
+trix-toolbar .trix-button-row .trix-button-group .trix-button {
+	background-color: #dfdfdf;
+	border: 0;
+	padding: 0 20px;
+}
+trix-toolbar .trix-button-row .trix-button-group .trix-button--icon {
+	font-size: 11px;
+}
+trix-toolbar .trix-button-row .trix-button-group .trix-button:hover {
+	background-color: #c3c3c3;
+}
+/* .trix-button-group .trix-button.trix-button--icon-attach,
+.trix-button-group.trix-button-group--file-tools,
+.trix-button-group.trix-button-group--history-tools,
+.trix-button-group-spacer {
+	display: none !important;
+} */

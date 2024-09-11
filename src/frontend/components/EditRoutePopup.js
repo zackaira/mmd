@@ -4,6 +4,7 @@ import SaveEditForm from "./SaveEditForm";
 import Loader from "../../Loader";
 
 const EditRoutePopup = ({
+	isPremiumUser,
 	isOpen,
 	onClose,
 	route,
@@ -58,6 +59,8 @@ const EditRoutePopup = ({
 
 	if (!isOpen) return null;
 
+	console.log("EditRoutePopup description", description);
+
 	return (
 		<>
 			<div className="mmd-popup-bg" onClick={onClose}></div>
@@ -69,6 +72,7 @@ const EditRoutePopup = ({
 						</div>
 					) : (
 						<SaveEditForm
+							isPremiumUser={isPremiumUser}
 							routeName={routeName}
 							setRouteName={setRouteName}
 							description={description}

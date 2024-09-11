@@ -18,6 +18,7 @@ import SaveSharePopup from "./SaveSharePopup";
 import Loader from "../../Loader";
 import Cookies from "js-cookie";
 import PoiForm from "./PoiForm";
+// import ElevationProfile from "./ElevationProfile";
 
 mapboxgl.accessToken =
 	"pk.eyJ1IjoiemFja2FpcmEiLCJhIjoiY2x6czFzcDlnMGk4eDJpczk0aGU1Zms0aiJ9.rtKaICIv9h1DOrpNupfRzw";
@@ -1088,7 +1089,7 @@ const MapBox = ({ mmdObj }) => {
 		mapRef.current.fitBounds(bounds, {
 			padding: { top: 50, bottom: 50, left: 50, right: 50 },
 			duration: 1000,
-			// maxZoom: 15,
+			maxZoom: 15,
 		});
 	}, []);
 
@@ -1484,7 +1485,7 @@ const MapBox = ({ mmdObj }) => {
 				canRedo={futureRef.current.length > 0}
 				onClear={handleClear}
 				onSaveRoute={handleSaveRoute}
-				canDeleteSave={historyRef.current.length > 0}
+				canDeleteSave={linestringRef.current.geometry.coordinates.length > 1}
 				latestLatLng={latestLatLng}
 				onZoomToBounds={zoomToBoundingBox}
 				canZoomToBounds={canZoomToBounds}
@@ -1522,6 +1523,7 @@ const MapBox = ({ mmdObj }) => {
 			/>
 			<SaveSharePopup
 				mmdObj={mmdObj}
+				isPremiumUser={isPremiumUser}
 				isOpen={isSaveShareOpen}
 				onClose={() => setIsSaveShareOpen(false)}
 				userDetails={userDetails}
@@ -1532,7 +1534,16 @@ const MapBox = ({ mmdObj }) => {
 				isSaved={isSaved}
 				allowRouteEditing={allowRouteEditing}
 				setAllowRouteEditing={setAllowRouteEditing}
+				zoomToBoundingBox={zoomToBoundingBox}
 			/>
+
+			{/* <ElevationProfile
+				map={mapRef.current}
+				coordinates={linestringRef.current.geometry.coordinates}
+				units={units}
+				onElevationCalculated={handleElevationCalculated}
+			/> */}
+
 			<ToastContainer
 				position="bottom-center"
 				autoClose={4000}

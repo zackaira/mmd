@@ -217,6 +217,10 @@ const AccountRoutes = ({ mmdObj }) => {
 		}
 	};
 
+	const stripHtmlTags = (html) => {
+		return html.replace(/<[^>]*>/g, "");
+	};
+
 	return (
 		<div className="mmd-routes">
 			<h3>{__("Saved Routes", "mmd")}</h3>
@@ -257,7 +261,9 @@ const AccountRoutes = ({ mmdObj }) => {
 											</div>
 										)}
 										<h4 className="route-title">{route.route_name}</h4>
-										<p className="route-desc">{route.route_description}</p>
+										<p className="route-desc">
+											{stripHtmlTags(route.route_description)}
+										</p>
 										<div className="route-distance">
 											{convertedDistance.toFixed(2)} {getUnitName(savedUnits)}
 										</div>
@@ -320,6 +326,7 @@ const AccountRoutes = ({ mmdObj }) => {
 			)}
 
 			<EditRoutePopup
+				isPremiumUser={mmdObj.isPremium}
 				isOpen={!!editingRoute}
 				onClose={() => setEditingRoute(null)}
 				route={editingRoute || {}}

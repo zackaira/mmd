@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
+import parse from "html-react-parser";
 
 const MapBoxControls = ({
 	isRouteEditable,
@@ -236,7 +237,9 @@ const MapBoxControls = ({
 					<>
 						<div className="mmd-rdata">
 							<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
-							<p className="mmd-rdata-desc">{routeData.description}</p>
+							<p className="mmd-rdata-desc mmd-trix-style">
+								{parse(routeData.description || "")}
+							</p>
 
 							{/* <div className="mmd-rdata-btns">
 							<a href="" target="_blank" className="button mmd-rdata-btn">
