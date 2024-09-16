@@ -99,10 +99,7 @@ const MapBox = ({ mmdObj }) => {
 
 	const [isSearchOpen, setIsSearchOpen] = useState(false);
 	const [isSaveShareOpen, setIsSaveShareOpen] = useState(false);
-	const [saveShareAction, setSaveShareAction] = useState({
-		action: "save",
-		routeData: null,
-	});
+	const [saveShareAction, setSaveShareAction] = useState("save");
 	const [loadedRouteData, setLoadedRouteData] = useState(null);
 
 	const [sliderPosition, setSliderPosition] = useState(0);
@@ -167,11 +164,11 @@ const MapBox = ({ mmdObj }) => {
 
 			const processRouteData = (routeData) => {
 				// Ensure coordinates and linestring are arrays, even if empty
-				const coordinates = Array.isArray(routeData.coordinates)
-					? routeData.coordinates
+				const coordinates = Array.isArray(routeData.routeData.coordinates)
+					? routeData.routeData.coordinates
 					: [];
-				const linestring = Array.isArray(routeData.linestring)
-					? routeData.linestring
+				const linestring = Array.isArray(routeData.routeData.linestring)
+					? routeData.routeData.linestring
 					: [];
 
 				// Update geojsonRef with the loaded data
@@ -217,42 +214,32 @@ const MapBox = ({ mmdObj }) => {
 					},
 				};
 
-				const newAllowRouteEditing = isFromCookie
-					? true
-					: routeData.allowRouteEditing ?? false;
-
 				setIsNewRouteAndRef(false);
-				setIsRouteEditableAndRef(isFromCookie);
-				setAllowRouteEditingAndRef(newAllowRouteEditing);
+				setIsRouteEditableAndRef(isFromCookie || false);
+				setAllowRouteEditingAndRef(routeData.routeData.allowRouteEditing);
 
 				setIsSaved(!isFromCookie);
 
-				setRawFullDistance(routeData.fullDistance || 0);
-				setUnits(routeData.units || "km");
+				setRawFullDistance(routeData.routeDistance || 0);
+				setUnits(routeData.routeData.units || "km");
 
 				// Process Points of Interest
-				setPointsOfInterest(
-					Array.isArray(routeData.pointsOfInterest)
-						? routeData.pointsOfInterest
-						: []
-				);
+				setPointsOfInterest(routeData.routeData.pointsOfInterest || []);
 
 				// Update the map when it's available
 				if (mapRef.current && mapRef.current.getSource("geojson")) {
 					mapRef.current.getSource("geojson").setData(geojsonRef.current);
 
 					// Fit the map to the route bounds
-					if (linestring.length > 0) {
-						const bounds = new mapboxgl.LngLatBounds();
-						linestring.forEach((coord) => bounds.extend(coord));
-						mapRef.current.fitBounds(bounds, {
+					if (routeData.routeData.bounds) {
+						mapRef.current.fitBounds(routeData.routeData.bounds, {
 							padding: { top: 50, bottom: 50, left: 50, right: 50 },
 							duration: 1000,
 						});
 					}
 
 					// Update click handlers
-					if (isFromCookie) {
+					if (isFromCookie || routeData.routeData.allowRouteEditing) {
 						mapRef.current.on("click", handleMapClick);
 					} else {
 						mapRef.current.off("click", handleMapClick);
@@ -288,7 +275,7 @@ const MapBox = ({ mmdObj }) => {
 					})
 					.catch((error) => {
 						console.error("Error loading route:", error);
-						// ... existing error handling ...
+						toast.error(__("Failed to load route. Please try again.", "mmd"));
 					})
 					.finally(() => {
 						routeLoadingRef.current = false;
@@ -328,12 +315,24 @@ const MapBox = ({ mmdObj }) => {
 				.filter((feature) => feature.geometry.type === "Point")
 				.map((feature) => feature.geometry.coordinates),
 			linestring: linestringRef.current.geometry.coordinates,
-			fullDistance: rawFullDistance,
-			units: units,
 			bounds: mapRef.current.getBounds().toArray(),
+			allowRouteEditing: allowRouteEditing,
+			pointsOfInterest: pointsOfInterest,
+			units: units,
 		};
-		Cookies.set("mmd_saved_route", JSON.stringify(routeData), { expires: 1 }); // Expires in 1 day
-	}, [geojsonRef, linestringRef, rawFullDistance, units]);
+		const cookieData = {
+			routeDistance: rawFullDistance,
+			routeData: routeData,
+		};
+		Cookies.set("mmd_saved_route", JSON.stringify(cookieData), { expires: 1 }); // Expires in 1 day
+	}, [
+		geojsonRef,
+		linestringRef,
+		rawFullDistance,
+		units,
+		allowRouteEditing,
+		pointsOfInterest,
+	]);
 
 	const toggleRouteEditable = useCallback(() => {
 		if (allowRouteEditingRef.current) {
@@ -363,78 +362,6 @@ const MapBox = ({ mmdObj }) => {
 		}
 	}, [setIsRouteEditableAndRef, handleMapClick]);
 
-	// const updateMapWithRouteData = useCallback(
-	// 	(routeData) => {
-	// 		setIsRouteEditable(false);
-
-	// 		geojsonRef.current = {
-	// 			type: "FeatureCollection",
-	// 			features: [
-	// 				...routeData.coordinates.map((coord, index) => ({
-	// 					type: "Feature",
-	// 					geometry: {
-	// 						type: "Point",
-	// 						coordinates: coord,
-	// 					},
-	// 					properties: {
-	// 						markerNumber: index + 1,
-	// 					},
-	// 				})),
-	// 				{
-	// 					type: "Feature",
-	// 					geometry: {
-	// 						type: "LineString",
-	// 						coordinates: routeData.linestring,
-	// 					},
-	// 					properties: {},
-	// 				},
-	// 			],
-	// 		};
-
-	// 		linestringRef.current = {
-	// 			type: "Feature",
-	// 			geometry: {
-	// 				type: "LineString",
-	// 				coordinates: routeData.linestring,
-	// 			},
-	// 		};
-
-	// 		setRawFullDistance(routeData.fullDistance);
-	// 		setUnits(routeData.units);
-
-	// 		if (routeData.coordinates.length > 0) {
-	// 			setLatestLatLng(
-	// 				routeData.coordinates[routeData.coordinates.length - 1]
-	// 			);
-	// 		}
-
-	// 		recalculateDistances();
-
-	// 		if (mapRef.current && mapRef.current.getSource("geojson")) {
-	// 			mapRef.current.getSource("geojson").setData(geojsonRef.current);
-	// 		}
-	// 	},
-	// 	[recalculateDistances]
-	// );
-
-	// const forceZoomToBounds = useCallback(() => {
-	// 	if (
-	// 		mapRef.current &&
-	// 		linestringRef.current.geometry.coordinates.length > 1
-	// 	) {
-	// 		const bounds = new mapboxgl.LngLatBounds();
-	// 		linestringRef.current.geometry.coordinates.forEach((coord) => {
-	// 			bounds.extend(coord);
-	// 		});
-
-	// 		mapRef.current.fitBounds(bounds, {
-	// 			padding: { top: 50, bottom: 50, left: 50, right: 50 },
-	// 			duration: 1000,
-	// 			maxZoom: 15,
-	// 		});
-	// 	}
-	// }, []);
-
 	const handleToggleSearch = useCallback(() => {
 		setIsSearchOpen((prev) => !prev);
 	}, []);
@@ -448,27 +375,32 @@ const MapBox = ({ mmdObj }) => {
 			}
 
 			const routeData = {
-				coordinates: geojsonRef.current.features
-					.filter((feature) => feature.geometry.type === "Point")
-					.map((feature) => feature.geometry.coordinates),
-				linestring: linestringRef.current.geometry.coordinates,
-				fullDistance: rawFullDistance,
-				units: units,
-				bounds: mapRef.current.getBounds().toArray(),
-				allowRouteEditing: allowRouteEditing,
-				pointsOfInterest: pointsOfInterest,
+				routeDistance: rawFullDistance,
+				routeData: {
+					coordinates: geojsonRef.current.features
+						.filter((feature) => feature.geometry.type === "Point")
+						.map((feature) => feature.geometry.coordinates),
+					linestring: linestringRef.current.geometry.coordinates,
+					bounds: mapRef.current.getBounds().toArray(),
+					allowRouteEditing: allowRouteEditing,
+					pointsOfInterest: pointsOfInterest,
+					units: units,
+				},
 				// Include additional fields from loadedRouteData if editing an existing route
 				...(loadedRouteData && {
 					routeName: loadedRouteData.routeName,
-					description: loadedRouteData.description,
-					tags: loadedRouteData.tags,
-					activity: loadedRouteData.activity,
-					route_id: loadedRouteData.route_id,
-					originalCreator: loadedRouteData.originalCreator,
+					routeDescription: loadedRouteData.routeDescription,
+					routeTags: loadedRouteData.routeTags,
+					routeActivity: loadedRouteData.routeActivity,
+					routeId: loadedRouteData.routeId,
+					...(loadedRouteData?.isRouteOwner && {
+						isRouteOwner: loadedRouteData.isRouteOwner,
+					}),
 				}),
 			};
 
-			setSaveShareAction({ action, routeData });
+			setLoadedRouteData(routeData);
+			setSaveShareAction(action);
 			setIsSaveShareOpen(true);
 		},
 		[
@@ -490,13 +422,15 @@ const MapBox = ({ mmdObj }) => {
 			geojson: JSON.parse(JSON.stringify(geojsonRef.current)),
 			linestring: JSON.parse(JSON.stringify(linestringRef.current)),
 			isRouteClosed: isRouteClosed,
+			pointsOfInterest: [...pointsOfInterest],
 		};
-	}, [isRouteClosed]);
+	}, [isRouteClosed, pointsOfInterest]);
 
 	const restoreState = useCallback((state) => {
 		geojsonRef.current = state.geojson;
 		linestringRef.current = state.linestring;
 		setIsRouteClosed(state.isRouteClosed);
+		setPointsOfInterest(state.pointsOfInterest || []);
 	}, []);
 
 	const updateDistances = useCallback((currentUnits) => {
@@ -572,7 +506,7 @@ const MapBox = ({ mmdObj }) => {
 			container: mapContainerRef.current,
 			style: "mapbox://styles/mapbox/streets-v12",
 			center: userLocation,
-			zoom: 14,
+			zoom: 15,
 		});
 		mapRef.current = map;
 
@@ -962,13 +896,21 @@ const MapBox = ({ mmdObj }) => {
 			// Reset slider position
 			setSliderPosition(0);
 
-			// Remove POIs associated with removed segments
+			// Update POIs after undo
 			const currentLineString = linestringRef.current.geometry.coordinates;
-			setPointsOfInterest((prevPois) =>
-				prevPois.filter(
-					(poi) => poi.segmentIndex < currentLineString.length - 1
-				)
-			);
+			setPointsOfInterest((prevPois) => {
+				return prevPois.filter((poi) => {
+					// Keep POIs that are still within the route's bounds
+					const poiPoint = turf.point(poi.lngLat);
+					const updatedLine = turf.lineString(currentLineString);
+					const snappedPoint = turf.nearestPointOnLine(updatedLine, poiPoint);
+
+					// Check if the POI is still close to the line (you may need to adjust the threshold)
+					return (
+						turf.distance(poiPoint, snappedPoint, { units: "meters" }) < 10
+					);
+				});
+			});
 		}
 	}, [saveState, restoreState, recalculateDistances, setSliderPosition]);
 
@@ -1089,21 +1031,23 @@ const MapBox = ({ mmdObj }) => {
 		mapRef.current.fitBounds(bounds, {
 			padding: { top: 50, bottom: 50, left: 50, right: 50 },
 			duration: 1000,
-			maxZoom: 15,
+			maxZoom: 16,
 		});
 	}, []);
 
 	const handleSaveRoute = () => {
 		const routeData = {
-			coordinates: geojsonRef.current.features
-				.filter((feature) => feature.geometry.type === "Point")
-				.map((feature) => feature.geometry.coordinates),
-			linestring: linestringRef.current.geometry.coordinates,
-			fullDistance: rawFullDistance, // Use the raw distance in km
-			units: units,
-			bounds: mapRef.current.getBounds().toArray(),
-			allowRouteEditing: allowRouteEditing,
-			pointsOfInterest: pointsOfInterest,
+			routeDistance: rawFullDistance, // Use the raw distance in km
+			routeData: {
+				coordinates: geojsonRef.current.features
+					.filter((feature) => feature.geometry.type === "Point")
+					.map((feature) => feature.geometry.coordinates),
+				linestring: linestringRef.current.geometry.coordinates,
+				units: units,
+				bounds: mapRef.current.getBounds().toArray(),
+				allowRouteEditing: allowRouteEditing,
+				pointsOfInterest: pointsOfInterest,
+			},
 		};
 
 		// Now you can pass this routeData to your SaveSharePopup component
@@ -1115,11 +1059,74 @@ const MapBox = ({ mmdObj }) => {
 		(savedRouteData) => {
 			setIsSaved(true);
 			// Update allowRouteEditing based on the saved data
-			const newAllowRouteEditing = savedRouteData.allowRouteEditing ?? false;
+			const newAllowRouteEditing =
+				savedRouteData.routeData.allowRouteEditing ?? false;
 			setAllowRouteEditingAndRef(newAllowRouteEditing);
+			setLoadedRouteData(savedRouteData);
+
+			// Update other relevant state
+			setRawFullDistance(savedRouteData.routeDistance);
+			setUnits(savedRouteData.routeData.units);
+			setPointsOfInterest(savedRouteData.routeData.pointsOfInterest);
+
+			// Update geojsonRef and linestringRef if needed
+			updateRouteRefs(savedRouteData.routeData);
 		},
-		[setAllowRouteEditingAndRef]
+		[
+			setAllowRouteEditingAndRef,
+			setRawFullDistance,
+			setUnits,
+			setPointsOfInterest,
+		]
 	);
+
+	// Helper function to update route refs
+	const updateRouteRefs = (routeData) => {
+		geojsonRef.current = {
+			type: "FeatureCollection",
+			features: [
+				...routeData.coordinates.map((coord, index) => ({
+					type: "Feature",
+					geometry: {
+						type: "Point",
+						coordinates: coord,
+					},
+					properties: {
+						markerNumber: index + 1,
+						size: 8,
+						color: [0, 0, 0, 1],
+					},
+				})),
+				{
+					type: "Feature",
+					geometry: {
+						type: "LineString",
+						coordinates: routeData.linestring,
+					},
+					properties: {
+						width: 2,
+						color: [0, 0, 0, 1],
+					},
+				},
+			],
+		};
+
+		linestringRef.current = {
+			type: "Feature",
+			geometry: {
+				type: "LineString",
+				coordinates: routeData.linestring,
+			},
+			properties: {
+				width: 2,
+				color: [0, 0, 0, 1],
+			},
+		};
+
+		if (mapRef.current && mapRef.current.getSource("geojson")) {
+			mapRef.current.getSource("geojson").setData(geojsonRef.current);
+		}
+	};
 
 	const showLoginRegisterToast = useCallback(() => {
 		toast.info(
@@ -1198,8 +1205,14 @@ const MapBox = ({ mmdObj }) => {
 			const lngLat = currentPositionMarkerRef.current.getLngLat();
 			setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
 		} else {
-			if (!isPremiumUser) {
-				toast.info(__("Points of Interest are a Premium feature", "mmd"), {
+			if (userDetails) {
+				if (!isPremiumUser) {
+					toast.info(__("Points of Interest are a Premium feature", "mmd"), {
+						toastId: "is-route-editable",
+					});
+				}
+			} else {
+				toast.info(__("Please Signup or Login to edit a route", "mmd"), {
 					toastId: "is-route-editable",
 				});
 			}
@@ -1286,6 +1299,11 @@ const MapBox = ({ mmdObj }) => {
 	}, []);
 
 	const getSegmentIndex = useCallback((poiCoords) => {
+		if (!poiCoords || !Array.isArray(poiCoords) || poiCoords.length !== 2) {
+			console.error("Invalid POI coordinates:", poiCoords);
+			return -1; // or handle this case appropriately
+		}
+
 		const lineString = linestringRef.current.geometry.coordinates;
 		let minDistance = Infinity;
 		let segmentIndex = -1;
@@ -1362,25 +1380,30 @@ const MapBox = ({ mmdObj }) => {
 					}'></span>`;
 					el.title = poi.title;
 
-					const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+					const popup = new mapboxgl.Popup({
+						offset: 25,
+						closeButton: false,
+					}).setHTML(
 						`<div class="mmd-poi-content">
-						<h3>${poi.title}</h3>
-						<p>${poi.description}</p>
-						${
-							isPremiumUser && isRouteEditableRef.current
-								? `
-						<div class="mmd-poi-btns">
-						<button class="poi-btn edit-poi" data-poi-id="${poi.id}">${__(
-										"Edit",
-										"mmd"
-								  )}</button>
-						<button class="poi-btn delete-poi" data-poi-id="${poi.id}">${__(
-										"Delete",
-										"mmd"
-								  )}</button></div>`
-								: ""
-						}
-					</div>`
+							<button class="fa-solid fa-xmark mmd-poi-close" tabindex="-1"></button>
+
+							<h3>${poi.title}</h3>
+							<p>${poi.description}</p>
+							${
+								isPremiumUser && isRouteEditableRef.current
+									? `
+							<div class="mmd-poi-btns">
+							<button class="poi-btn edit-poi" data-poi-id="${poi.id}">${__(
+											"Edit",
+											"mmd"
+									  )}</button>
+							<button class="poi-btn delete-poi" data-poi-id="${poi.id}">${__(
+											"Delete",
+											"mmd"
+									  )}</button></div>`
+									: ""
+							}
+						</div>`
 					);
 
 					const marker = new mapboxgl.Marker(el)
@@ -1401,13 +1424,19 @@ const MapBox = ({ mmdObj }) => {
 						if (popupContent) {
 							const editButton = popupContent.querySelector(".edit-poi");
 							const deleteButton = popupContent.querySelector(".delete-poi");
+							const closeButton = popupContent.querySelector(".mmd-poi-close");
+
+							closeButton.addEventListener("click", () => {
+								document.querySelector(".mmd-poi-content").inert = true;
+								marker.togglePopup();
+							});
 
 							if (editButton) {
 								editButton.addEventListener("click", (e) => {
 									e.preventDefault();
 									e.stopPropagation();
 									handlePoiEdit(poi);
-									marker.togglePopup(); // Close the popup after clicking edit
+									// marker.togglePopup();
 								});
 							}
 
@@ -1512,6 +1541,7 @@ const MapBox = ({ mmdObj }) => {
 					poi={editingPoi}
 					onSave={handlePoiSave}
 					onCancel={() => setEditingPoi(null)}
+					isPremiumUser={isPremiumUser}
 				/>
 			)}
 
@@ -1527,9 +1557,9 @@ const MapBox = ({ mmdObj }) => {
 				isOpen={isSaveShareOpen}
 				onClose={() => setIsSaveShareOpen(false)}
 				userDetails={userDetails}
-				action={saveShareAction.action}
-				routeData={saveShareAction.routeData}
-				distance={rawFullDistance}
+				action={saveShareAction}
+				routeData={loadedRouteData}
+				routeDistance={rawFullDistance}
 				onSaveSuccess={handleSaveSuccess}
 				isSaved={isSaved}
 				allowRouteEditing={allowRouteEditing}

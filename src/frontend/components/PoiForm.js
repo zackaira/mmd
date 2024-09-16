@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import { __ } from "@wordpress/i18n";
+import MMDTrixEditor from "./UI/mmdTrixEditor";
 
-const PoiForm = ({ poi, onSave, onCancel }) => {
+const PoiForm = ({ poi, onSave, onCancel, isPremiumUser }) => {
 	const [title, setTitle] = useState(poi?.title || "");
 	const [description, setDescription] = useState(poi?.description || "");
 	const [icon, setIcon] = useState(poi?.icon || "fa-location-dot");
 	const titleInputRef = useRef(null);
+	const [trixContent, setTrixContent] = useState(description);
 
 	useEffect(() => {
 		if (titleInputRef.current) {
@@ -15,7 +17,18 @@ const PoiForm = ({ poi, onSave, onCancel }) => {
 
 	const handleSubmit = (e) => {
 		e.preventDefault();
-		onSave({ ...poi, title, description, icon });
+		const poiData = {
+			title,
+			description: isPremiumUser ? trixContent : description,
+			icon,
+			lngLat: poi.lngLat,
+		};
+		onSave(poiData);
+	};
+
+	const handleTrixChange = (newContent) => {
+		setTrixContent(newContent);
+		setDescription(newContent);
 	};
 
 	const iconOptions = [
@@ -85,11 +98,21 @@ const PoiForm = ({ poi, onSave, onCancel }) => {
 						</div>
 						<div className="mmd-form-row">
 							<label>{__("Description", "mmd")}</label>
-							<textarea
-								value={description}
-								onChange={(e) => setDescription(e.target.value)}
-								rows={5}
-							/>
+							{isPremiumUser ? (
+								<>
+									<MMDTrixEditor
+										initialContent={description}
+										onChange={handleTrixChange}
+									/>
+								</>
+							) : (
+								<textarea
+									name="routeDescription"
+									value={description}
+									onChange={(e) => setDescription(e.target.value)}
+									rows={4}
+								></textarea>
+							)}
 						</div>
 						<div className="mmd-form-row">
 							<label htmlFor="poi-icon">{__("Marker / Icon", "mmd")}</label>

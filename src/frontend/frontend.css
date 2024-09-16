@@ -330,12 +330,22 @@ trix-toolbar .trix-button-row .trix-button-group .trix-button {
 trix-toolbar .trix-button-row .trix-button-group .trix-button--icon {
 	font-size: 11px;
 }
-trix-toolbar .trix-button-row .trix-button-group .trix-button:hover {
+trix-toolbar .trix-button-row .trix-button-group .trix-button:hover,
+trix-toolbar .trix-button-row .trix-button-group .trix-button.trix-active {
 	background-color: #c3c3c3;
 }
-/* .trix-button-group .trix-button.trix-button--icon-attach,
+.trix-button-group .trix-button.trix-button--icon-attach,
 .trix-button-group.trix-button-group--file-tools,
 .trix-button-group.trix-button-group--history-tools,
 .trix-button-group-spacer {
 	display: none !important;
-} */
+}
+.mmd-button-group {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+.mmd-button-group button[type="submit"]:disabled {
+	background-color: grey;
+	opacity: 0.8;
+}

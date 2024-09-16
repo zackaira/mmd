@@ -235,21 +235,23 @@ const MapBoxControls = ({
 
 				{routeData && (
 					<>
-						<div className="mmd-rdata">
-							<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
-							<p className="mmd-rdata-desc mmd-trix-style">
-								{parse(routeData.description || "")}
-							</p>
+						{(routeData?.routeName || routeData?.routeDescription) && (
+							<div className="mmd-rdata">
+								<h4 className="mmd-rdata-title">{routeData.routeName}</h4>
+								<div className="mmd-rdata-desc mmd-trix-style">
+									{parse(routeData.routeDescription || "")}
+								</div>
 
-							{/* <div className="mmd-rdata-btns">
-							<a href="" target="_blank" className="button mmd-rdata-btn">
-								{__("View Event Website", "mmd")}
-							</a>
-							<a href="" target="_blank" className="button mmd-rdata-btn">
-								{__("Enter This Event", "mmd")}
-							</a>
-						</div> */}
-						</div>
+								{/* <div className="mmd-rdata-btns">
+										<a href="" target="_blank" className="button mmd-rdata-btn">
+											{__("View Event Website", "mmd")}
+										</a>
+										<a href="" target="_blank" className="button mmd-rdata-btn">
+											{__("Enter This Event", "mmd")}
+										</a>
+									</div> */}
+							</div>
+						)}
 
 						{pointsOfInterest && pointsOfInterest.length > 0 && (
 							<div className="mmd-pois">

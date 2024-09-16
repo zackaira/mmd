@@ -1,18 +1,17 @@
-import React, { useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { __ } from "@wordpress/i18n";
-import Trix from "trix";
-import "trix/dist/trix.css";
 import InputToggleSwitch from "../../backend/components/inputs/InputToggleSwitch";
+import MMDTrixEditor from "./UI/mmdTrixEditor";
 
 const SaveEditForm = ({
 	isPremiumUser,
 	routeName,
 	setRouteName,
-	description,
-	setDescription,
-	tags,
-	activity,
-	setActivity,
+	routeDescription,
+	setRouteDescription,
+	routeTags,
+	routeActivity,
+	setRouteActivity,
 	activities,
 	handleTagKeyDown,
 	removeTag,
@@ -22,60 +21,63 @@ const SaveEditForm = ({
 	popupTitle,
 	isSharedRoute,
 	isEditing,
+	isRouteOwner,
+	isSaved,
+	onFormChange,
+	isFormModified,
 }) => {
 	const routeNameRef = useRef(null);
-	const trixEditorRef = useRef(null);
+	const [trixContent, setTrixContent] = useState(routeDescription);
 
 	useEffect(() => {
 		if (routeNameRef.current) {
 			routeNameRef.current.focus();
 		}
-
-		if (trixEditorRef.current) {
-			// Remove unwanted buttons
-			trixEditorRef.current.toolbarElement
-				.querySelector(".trix-button--icon-attach")
-				.remove();
-			trixEditorRef.current.toolbarElement
-				.querySelector(".trix-button-group--file-tools")
-				.remove();
-			trixEditorRef.current.toolbarElement
-				.querySelector(".trix-button-group-spacer")
-				.remove();
-			trixEditorRef.current.toolbarElement
-				.querySelector(".trix-button-group--history-tools")
-				.remove();
-		}
 	}, []);
 
-	useEffect(() => {
-		if (trixEditorRef.current && isPremiumUser) {
-			const trixEditor = trixEditorRef.current;
-			trixEditor.editor.loadHTML(description);
-		}
-	}, [description, isPremiumUser]);
-
-	const handleTrixChange = (e) => {
-		const htmlContent = e.target.innerHTML;
-		setDescription(htmlContent);
-	};
-
-	const handleSubmit = (e) => {
+	const handleSubmit = (e, saveAsNew = false) => {
 		e.preventDefault();
 		const formData = {
 			routeName,
-			description: isPremiumUser
-				? trixEditorRef.current.innerHTML
-				: description,
-			tags,
-			activity,
+			routeDescription: isPremiumUser ? trixContent : routeDescription,
+			routeTags,
+			routeActivity,
 			allowRouteEditing,
 		};
-		onSubmit(e, formData);
+		onSubmit(e, formData, saveAsNew);
 	};
 
-	console.log("isPremiumUser: ", isPremiumUser);
-	console.log("Description in SaveEditForm: ", description);
+	const handleTrixChange = (newContent) => {
+		setTrixContent(newContent);
+		setRouteDescription(newContent);
+		onFormChange();
+	};
+
+	const handleInputChange = (e) => {
+		const { name, value } = e.target;
+		switch (name) {
+			case "routeName":
+				setRouteName(value);
+				break;
+			case "routeDescription":
+				setRouteDescription(value);
+				break;
+			case "routeActivity":
+				setRouteActivity(value);
+				break;
+		}
+		onFormChange();
+	};
+
+	const handleTagKeyDownWrapper = (e) => {
+		handleTagKeyDown(e);
+		onFormChange();
+	};
+
+	const removeTagWrapper = (index) => {
+		removeTag(index);
+		onFormChange();
+	};
 
 	return (
 		<div className="content save">
@@ -106,8 +108,9 @@ const SaveEditForm = ({
 					</label>
 					<input
 						type="text"
+						name="routeName"
 						value={routeName}
-						onChange={(e) => setRouteName(e.target.value)}
+						onChange={handleInputChange}
 						required
 						ref={routeNameRef}
 					/>
@@ -116,34 +119,16 @@ const SaveEditForm = ({
 					<label>{__("Description", "mmd")}</label>
 					{isPremiumUser ? (
 						<>
-							<trix-editor
-								ref={trixEditorRef}
+							<MMDTrixEditor
+								initialContent={routeDescription}
 								onChange={handleTrixChange}
-								value={description}
-								options={{
-									toolbar: {
-										buttons: [
-											"bold",
-											"italic",
-											"link",
-											"undo",
-											"redo",
-											"heading",
-											"quote",
-											"code",
-											"ol",
-											"ul",
-											"hr",
-										],
-									},
-									placeholder: "Enter your text here...",
-								}}
-							></trix-editor>
+							/>
 						</>
 					) : (
 						<textarea
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
+							name="routeDescription"
+							value={routeDescription}
+							onChange={handleInputChange}
 							rows={4}
 						></textarea>
 					)}
@@ -157,10 +142,13 @@ const SaveEditForm = ({
 					</label>
 					<div className="tags-input">
 						<div className="tags-list">
-							{tags.map((tag, index) => (
+							{routeTags.map((tag, index) => (
 								<span key={index} className="tag">
 									{tag}
-									<span className="tag-close" onClick={() => removeTag(index)}>
+									<span
+										className="tag-close"
+										onClick={() => removeTagWrapper(index)}
+									>
 										&times;
 									</span>
 								</span>
@@ -168,7 +156,8 @@ const SaveEditForm = ({
 						</div>
 						<input
 							type="text"
-							onKeyDown={handleTagKeyDown}
+							name="routeTags"
+							onKeyDown={handleTagKeyDownWrapper}
 							placeholder={__("Add a tag and press enter or comma", "mmd")}
 						/>
 					</div>
@@ -185,11 +174,11 @@ const SaveEditForm = ({
 								>
 									<input
 										type="radio"
+										name="routeActivity"
 										id={activityOption}
-										name="activity"
 										value={activityOption}
-										checked={activity === activityOption}
-										onChange={(e) => setActivity(e.target.value)}
+										checked={routeActivity === activityOption}
+										onChange={handleInputChange}
 									/>
 									{activityOption.replace("_", " ")}
 								</label>
@@ -197,27 +186,45 @@ const SaveEditForm = ({
 						</div>
 					</div>
 				)}
-				<div className="mmd-form-row">
-					<div className="toggle-switch-container">
-						<label className="toggle-switch-label" htmlFor="route-editable">
-							{__("Allow anyone to edit this route", "mmd")}
-						</label>
-						<InputToggleSwitch
-							slug="route-editable"
-							id="route-editable"
-							title="Allow anyone to edit this route"
-							value={allowRouteEditing}
-							onChange={() => setAllowRouteEditing(!allowRouteEditing)}
-						/>
+
+				{(!isEditing || isRouteOwner) && (
+					<div className="mmd-form-row">
+						<div className="toggle-switch-container">
+							<label className="toggle-switch-label" htmlFor="route-editable">
+								{__("Allow anyone to edit this route", "mmd")}
+							</label>
+							<InputToggleSwitch
+								slug="route-editable"
+								id="route-editable"
+								title="Allow anyone to edit this route"
+								value={allowRouteEditing}
+								onChange={() => {
+									setAllowRouteEditing(!allowRouteEditing);
+									onFormChange();
+								}}
+							/>
+						</div>
 					</div>
+				)}
+
+				<div className="mmd-button-group">
+					{isSaved ? (
+						<>
+							<button
+								type="submit"
+								onClick={(e) => handleSubmit(e, false)}
+								disabled={!isFormModified}
+							>
+								{__("Update Route", "mmd")}
+							</button>
+							<button type="button" onClick={(e) => handleSubmit(e, true)}>
+								{__("Save as New Route", "mmd")}
+							</button>
+						</>
+					) : (
+						<button type="submit">{__("Save Route", "mmd")}</button>
+					)}
 				</div>
-				<button type="submit">
-					{isSharedRoute && !isEditing
-						? __("Save as New Route", "mmd")
-						: isEditing
-						? __("Update Route", "mmd")
-						: __("Save Route", "mmd")}
-				</button>
 			</form>
 		</div>
 	);

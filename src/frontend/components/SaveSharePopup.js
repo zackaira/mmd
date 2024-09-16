@@ -13,7 +13,7 @@ const SaveSharePopup = ({
 	userDetails,
 	action,
 	routeData,
-	distance,
+	routeDistance,
 	onSaveSuccess,
 	isSaved,
 	allowRouteEditing,
@@ -22,13 +22,13 @@ const SaveSharePopup = ({
 }) => {
 	const [activeTab, setActiveTab] = useState(action);
 	const [routeName, setRouteName] = useState("");
-	const [description, setDescription] = useState("");
-	const [tags, setTags] = useState([]);
-	const [activity, setActivity] = useState("");
+	const [routeDescription, setRouteDescription] = useState("");
+	const [routeTags, setRouteTags] = useState([]);
+	const [routeActivity, setRouteActivity] = useState("");
 	const [isLoading, setIsLoading] = useState(false);
 	const [routeUrl, setRouteUrl] = useState("");
 	const scrollableRef = useRef(null);
-	const [hasSavedRoute, setHasSavedRoute] = useState(false);
+	const [hasSavedRoute, setHasSavedRoute] = useState(false); // NOT SURE THIS IS WORKING / NEEDED
 	const [isEditable, setIsEditable] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
 	const [existingRouteId, setExistingRouteId] = useState(null);
@@ -36,7 +36,9 @@ const SaveSharePopup = ({
 	const activities = userDetails?.activities || [];
 
 	const [isSharedRoute, setIsSharedRoute] = useState(false);
-	const [originalCreator, setOriginalCreator] = useState(null);
+	const [isRouteOwner, setIsRouteOwner] = useState(false);
+
+	const [isFormModified, setIsFormModified] = useState(false);
 
 	useEffect(() => {
 		setActiveTab(action);
@@ -48,35 +50,36 @@ const SaveSharePopup = ({
 			zoomToBoundingBox();
 
 			if (routeData) {
-				// Populate form with existing route data for editing
 				setRouteName(routeData.routeName || "");
-				setDescription(routeData.description || "");
-				setTags(routeData.tags || []);
-				setActivity(routeData.activity || "");
-				setIsEditable(routeData.allowRouteEditing || false);
-				setAllowRouteEditing(routeData.allowRouteEditing || false);
-				setExistingRouteId(routeData.route_id || null);
+				setRouteDescription(routeData.routeDescription || "");
+				setRouteTags(routeData.routeTags || []);
+				setRouteActivity(routeData.routeActivity || "");
+				setIsEditable(false);
+				setAllowRouteEditing(routeData.routeData?.allowRouteEditing || false);
+				setExistingRouteId(routeData.routeId || null);
 				setIsSharedRoute(
 					routeData.originalCreator &&
 						routeData.originalCreator !== userDetails.id
 				);
-				setOriginalCreator(routeData.originalCreator || null);
-				setIsEditing(!!routeData.route_id);
+				setIsRouteOwner(routeData?.isRouteOwner || false);
+				setIsEditing(!!routeData.routeId);
 				setRouteUrl(
-					routeData.routeUrl || `${mmdObj.siteUrl}/?route=${routeData.route_id}`
+					routeData.routeId
+						? `${mmdObj.siteUrl}/?route=${routeData.routeId}`
+						: ""
 				);
 			} else {
 				// Reset form for new route
 				setRouteName("");
-				setDescription("");
-				setTags([]);
-				setActivity("");
+				setRouteDescription("");
+				setRouteTags([]);
+				setRouteActivity("");
 				setIsEditable(false);
 				setAllowRouteEditing(false);
 				setExistingRouteId(null);
+				setIsRouteOwner(true);
 				setIsEditing(false);
 				setIsSharedRoute(false);
-				setOriginalCreator(null);
 				setRouteUrl("");
 			}
 		}
@@ -88,7 +91,7 @@ const SaveSharePopup = ({
 		setActiveTab(tab);
 	};
 
-	const saveRoute = async (e, formData) => {
+	const saveRoute = async (e, formData, saveAsNew = false) => {
 		e.preventDefault();
 		setIsLoading(true);
 
@@ -101,23 +104,27 @@ const SaveSharePopup = ({
 		let endpoint;
 		let method;
 
-		if (isSharedRoute && isEditable) {
-			// Shared route that's editable - update the existing route
-			endpoint = `${mmdObj.apiUrl}mmd-api/v1/update-route/${existingRouteId}`;
-			method = "PUT";
-		} else if (isSharedRoute && !isEditable) {
-			// Shared route that's not editable - save as a new route
+		if (saveAsNew || !isSaved) {
+			// Save as a new route
 			endpoint = `${mmdObj.apiUrl}mmd-api/v1/save-route`;
 			method = "POST";
-		} else if (isEditing) {
-			// Editing own route
-			endpoint = `${mmdObj.apiUrl}mmd-api/v1/update-route/${existingRouteId}`;
-			method = "PUT";
 		} else {
-			// New route
-			endpoint = `${mmdObj.apiUrl}mmd-api/v1/save-route`;
-			method = "POST";
+			// Update the existing route
+			endpoint = `${mmdObj.apiUrl}mmd-api/v1/update-route/${existingRouteId}`;
+			method = "PUT";
 		}
+
+		const submittedRouteData = {
+			routeName: formData.routeName,
+			routeDescription: formData.routeDescription,
+			routeTags: formData.routeTags,
+			routeActivity: formData.routeActivity,
+			routeDistance: routeDistance,
+			routeData: {
+				...routeData.routeData,
+				allowRouteEditing: formData.allowRouteEditing,
+			},
+		};
 
 		try {
 			const response = await fetch(endpoint, {
@@ -126,16 +133,7 @@ const SaveSharePopup = ({
 					"Content-Type": "application/json",
 					"X-WP-Nonce": mmdObj.nonce,
 				},
-				body: JSON.stringify({
-					...formData,
-					routeData: {
-						...routeData,
-						allowRouteEditing: formData.allowRouteEditing,
-						pointsOfInterest: routeData.pointsOfInterest || [],
-						originalCreator: isSharedRoute ? originalCreator : userDetails.id,
-					},
-					distance,
-				}),
+				body: JSON.stringify(submittedRouteData),
 			});
 
 			if (!response.ok) {
@@ -144,21 +142,21 @@ const SaveSharePopup = ({
 
 			const data = await response.json();
 
-			onSaveSuccess({
-				...data,
-				allowRouteEditing,
-				pointsOfInterest: routeData.pointsOfInterest || [],
-			});
+			setIsFormModified(false);
+			onSaveSuccess(data.route);
+			setIsRouteOwner(data.route.isRouteOwner);
+
 			setIsLoading(false);
 
-			const newRouteUrl = `${mmdObj.siteUrl}/?route=${data.route_id}`;
+			const newRouteUrl = `${mmdObj.siteUrl}/?route=${data.route.routeId}`;
 			setRouteUrl(newRouteUrl);
 
 			setHasSavedRoute(true);
+			setExistingRouteId(data.route.routeId);
 			setActiveTab("share");
 
 			// Update the URL in the browser
-			// window.history.pushState({}, "", newRouteUrl);
+			window.history.pushState({}, "", newRouteUrl);
 
 			// Scroll to top of the popup
 			if (scrollableRef.current) {
@@ -183,15 +181,19 @@ const SaveSharePopup = ({
 		if (e.key === "Enter" || e.key === ",") {
 			e.preventDefault();
 			const newTag = e.target.value.trim();
-			if (newTag && !tags.includes(newTag)) {
-				setTags([...tags, newTag]);
+			if (newTag && !routeTags.includes(newTag)) {
+				setRouteTags([...routeTags, newTag]);
 				e.target.value = "";
 			}
 		}
 	};
 
 	const removeTag = (indexToRemove) => {
-		setTags(tags.filter((_, index) => index !== indexToRemove));
+		setRouteTags(routeTags.filter((_, index) => index !== indexToRemove));
+	};
+
+	const handleFormChange = () => {
+		setIsFormModified(true);
 	};
 
 	return (
@@ -225,11 +227,11 @@ const SaveSharePopup = ({
 										isPremiumUser={isPremiumUser}
 										routeName={routeName}
 										setRouteName={setRouteName}
-										description={description}
-										setDescription={setDescription}
-										tags={tags}
-										activity={activity}
-										setActivity={setActivity}
+										routeDescription={routeDescription}
+										setRouteDescription={setRouteDescription}
+										routeTags={routeTags}
+										routeActivity={routeActivity}
+										setRouteActivity={setRouteActivity}
 										activities={activities}
 										handleTagKeyDown={handleTagKeyDown}
 										removeTag={removeTag}
@@ -238,6 +240,10 @@ const SaveSharePopup = ({
 										setAllowRouteEditing={setAllowRouteEditing}
 										isSharedRoute={isSharedRoute}
 										isEditing={isEditing}
+										isRouteOwner={isRouteOwner}
+										isSaved={isSaved}
+										onFormChange={handleFormChange}
+										isFormModified={isFormModified}
 									/>
 								)}
 								{activeTab === "share" && (

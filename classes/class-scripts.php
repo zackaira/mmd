@@ -38,6 +38,9 @@ class MapMyDistance {
 		// Update/fix defaults on plugins_loaded hook
 		add_action( 'plugins_loaded', array( $this, 'mmd_update_plugin_defaults' ) );
 
+		// Add this line to call the database update function
+		add_action( 'plugins_loaded', array( $this, 'mmd_update_database' ) );
+
 		// Load Frontend JS & CSS.
 		add_action( 'wp_enqueue_scripts', array( $this, 'mmd_frontend_scripts' ), 10 );
 
@@ -339,6 +342,10 @@ class MapMyDistance {
 		$this->_log_version_number();
 
 		$this->mmd_create_custom_table();
+		$this->mmd_create_user_route_associations_table();
+
+		// Add this line to set the initial database version
+		update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
 	}
 
 	/**
@@ -352,21 +359,64 @@ class MapMyDistance {
 	
 		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id CHAR(32) NOT NULL,
-			user_id BIGINT(20) UNSIGNED NOT NULL,
 			route_name VARCHAR(255) NOT NULL,
 			route_description TEXT,
 			route_tags TEXT,
 			route_activity VARCHAR(100),
 			route_data LONGTEXT NOT NULL,
 			created_at DATETIME NOT NULL,
-			distance FLOAT NOT NULL,
+			route_distance FLOAT NOT NULL,
 			PRIMARY KEY (id),
-			INDEX idx_user_id (user_id),
 			INDEX idx_created_at (created_at)
 		) $charset_collate;";
 	
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
+	}
+
+	/**
+	 * Create custom database table for user route associations.
+	 */
+	public function mmd_create_user_route_associations_table() {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'mmd_user_route_associations';
+	
+		$charset_collate = $wpdb->get_charset_collate();
+	
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			user_id BIGINT UNSIGNED NOT NULL,
+			route_id CHAR(32) NOT NULL,
+			association_type ENUM('owner', 'collaborator') NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES {$wpdb->users}(ID),
+			FOREIGN KEY (route_id) REFERENCES {$wpdb->prefix}mmd_map_routes(id),
+			INDEX (user_id),
+			INDEX (route_id)
+		) $charset_collate;";
+	
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
+	}
+
+	public function mmd_update_database() {
+		$current_db_version = get_option('mmd_db_version', '1.0');
+
+		if (version_compare($current_db_version, MMD_PLUGIN_DB_VERSION, '<')) {
+			// Perform database updates
+			if (version_compare($current_db_version, '1.1', '<')) {
+				$this->mmd_create_user_route_associations_table();
+			}
+
+			// Add more version checks and update functions as needed
+			// For example:
+			// if (version_compare($current_db_version, '1.2', '<')) {
+			//     $this->some_future_update_function();
+			// }
+
+			// Update the database version option
+			update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
+		}
 	}
 
 	/**
