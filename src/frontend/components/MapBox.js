@@ -116,6 +116,12 @@ const MapBox = ({ mmdObj }) => {
 	const isRouteEditableRef = useRef(isRouteEditable);
 	const allowRouteEditingRef = useRef(allowRouteEditing);
 
+	const [undoStack, setUndoStack] = useState([]);
+	const [redoStack, setRedoStack] = useState([]);
+
+	console.log("undoStack: ", undoStack);
+	console.log("redoStack: ", redoStack);
+
 	// Update refs when state changes
 	useEffect(() => {
 		isNewRouteRef.current = isNewRoute;
@@ -263,6 +269,10 @@ const MapBox = ({ mmdObj }) => {
 					routeData: routeData.routeData,
 				});
 
+				const loadedMarkers = routeData.routeData.coordinates || [];
+				setUndoStack(loadedMarkers.slice(0, -1).reverse());
+				setRedoStack([]);
+
 				// Update the map when it's available
 				if (mapRef.current && mapRef.current.getSource("geojson")) {
 					mapRef.current.getSource("geojson").setData(geojsonRef.current);
@@ -273,7 +283,7 @@ const MapBox = ({ mmdObj }) => {
 					}, 100);
 
 					// Update click handlers
-					if (isFromCookie || routeData.routeData.allowRouteEditing) {
+					if (isFromCookie) {
 						mapRef.current.on("click", handleMapClick);
 					} else {
 						mapRef.current.off("click", handleMapClick);
@@ -378,7 +388,7 @@ const MapBox = ({ mmdObj }) => {
 	]);
 
 	const toggleRouteEditable = useCallback(() => {
-		if (loadedRouteData?.isRouteOwner || allowRouteEditingRef.current) {
+		if (allowRouteEditingRef.current) {
 			setIsRouteEditableAndRef((prev) => {
 				const newValue = !prev;
 				if (mapRef.current) {
@@ -670,9 +680,6 @@ const MapBox = ({ mmdObj }) => {
 			const map = mapRef.current;
 			if (!map) return;
 
-			historyRef.current.push(saveState());
-			futureRef.current = [];
-
 			const features = map.queryRenderedFeatures(e.point, {
 				layers: ["measure-points"],
 			});
@@ -682,6 +689,9 @@ const MapBox = ({ mmdObj }) => {
 			const markerCount = geojsonRef.current.features.filter(
 				(feature) => feature.geometry.type === "Point"
 			).length;
+
+			// Save the current state to the undo stack before making changes
+			setUndoStack((prevStack) => [...prevStack, saveState()]);
 
 			if (
 				features.length > 0 &&
@@ -706,6 +716,8 @@ const MapBox = ({ mmdObj }) => {
 					}
 				}
 			}
+
+			setRedoStack([]);
 
 			// Update the map
 			map.getSource("geojson").setData(geojsonRef.current);
@@ -926,86 +938,145 @@ const MapBox = ({ mmdObj }) => {
 		}
 	}, [units]);
 
-	const handleUndo = useCallback(() => {
-		if (historyRef.current.length > 0) {
-			const currentState = saveState();
-			const previousState = historyRef.current.pop();
+	const updateRouteAfterUndo = useCallback(
+		async (newMarkers) => {
+			let updatedCoords = [];
 
-			futureRef.current.unshift(currentState);
-			restoreState(previousState);
+			if (snapToRoutesRef.current && newMarkers.length > 1) {
+				for (let i = 1; i < newMarkers.length; i++) {
+					try {
+						const response = await mapboxClient.current.directions
+							.getDirections({
+								profile: "walking",
+								geometries: "geojson",
+								waypoints: [
+									{ coordinates: newMarkers[i - 1] },
+									{ coordinates: newMarkers[i] },
+								],
+							})
+							.send();
 
-			// Update the map immediately
-			if (mapRef.current) {
+						const routeSegment = response.body.routes[0].geometry.coordinates;
+						updatedCoords = updatedCoords.concat(
+							i === 1 ? routeSegment : routeSegment.slice(1)
+						);
+					} catch (error) {
+						console.error("Error fetching route:", error);
+						updatedCoords.push(newMarkers[i]);
+					}
+				}
+			} else {
+				updatedCoords = newMarkers;
+			}
+
+			// Update geojsonRef with new markers
+			geojsonRef.current.features = newMarkers.map((coord, index) => ({
+				type: "Feature",
+				geometry: {
+					type: "Point",
+					coordinates: coord,
+				},
+				properties: {
+					markerNumber: index + 1,
+					size: 8,
+					color: [0, 0, 0, 1],
+				},
+			}));
+
+			// Update linestring
+			const newLineString = {
+				type: "Feature",
+				geometry: {
+					type: "LineString",
+					coordinates: updatedCoords,
+				},
+				properties: {
+					width: 2,
+					color: [0, 0, 0, 1],
+				},
+			};
+			geojsonRef.current.features.push(newLineString);
+			linestringRef.current = newLineString;
+
+			// Update map
+			if (mapRef.current && mapRef.current.getSource("geojson")) {
 				mapRef.current.getSource("geojson").setData(geojsonRef.current);
 			}
 
-			// Recalculate distances after restoring the state
-			recalculateDistances();
-
 			// Update latest lat/lng
-			const lastPoint = geojsonRef.current.features
-				.filter((f) => f.geometry.type === "Point")
-				.pop();
-			if (lastPoint) {
-				setLatestLatLng(lastPoint.geometry.coordinates);
+			if (newMarkers.length > 0) {
+				setLatestLatLng(newMarkers[newMarkers.length - 1]);
 			} else {
 				setLatestLatLng(null);
 			}
 
-			// Remove the current position marker
-			if (currentPositionMarkerRef.current) {
-				currentPositionMarkerRef.current.remove();
-				currentPositionMarkerRef.current = null;
-			}
+			// Update POIs
+			updatePOIsAfterUndo(updatedCoords);
 
-			// Reset slider position
-			setSliderPosition(0);
+			// Recalculate distances
+			recalculateDistances();
+		},
+		[
+			recalculateDistances,
+			setLatestLatLng,
+			updatePOIsAfterUndo,
+			snapToRoutesRef,
+			mapboxClient,
+		]
+	);
 
-			// Update POIs after undo
-			const currentLineString = linestringRef.current.geometry.coordinates;
-			setPointsOfInterest((prevPois) => {
-				return prevPois.filter((poi) => {
-					// Keep POIs that are still within the route's bounds
-					const poiPoint = turf.point(poi.lngLat);
-					const updatedLine = turf.lineString(currentLineString);
-					const snappedPoint = turf.nearestPointOnLine(updatedLine, poiPoint);
+	const handleUndo = useCallback(() => {
+		const markers = geojsonRef.current.features
+			.filter((feature) => feature.geometry.type === "Point")
+			.map((feature) => feature.geometry.coordinates);
 
-					// Check if the POI is still close to the line (you may need to adjust the threshold)
-					return (
-						turf.distance(poiPoint, snappedPoint, { units: "meters" }) < 10
-					);
-				});
-			});
+		if (markers.length > 1) {
+			const lastMarker = markers.pop();
+			setUndoStack((prevStack) => prevStack.slice(0, -1));
+			setRedoStack((prevStack) => [...prevStack, lastMarker]);
+			updateRouteAfterUndo(markers);
+		} else if (markers.length === 1) {
+			// Clear the entire route if only one marker is left
+			setUndoStack((prevStack) => prevStack.slice(0, -1));
+			setRedoStack((prevStack) => [...prevStack, markers[0]]);
+			updateRouteAfterUndo([]);
 		}
-	}, [saveState, restoreState, recalculateDistances, setSliderPosition]);
+
+		// Remove the current position marker
+		if (currentPositionMarkerRef.current) {
+			currentPositionMarkerRef.current.remove();
+			currentPositionMarkerRef.current = null;
+		}
+
+		// Reset slider position
+		setSliderPosition(0);
+	}, [updateRouteAfterUndo, setSliderPosition]);
 
 	const handleRedo = useCallback(() => {
-		if (futureRef.current.length > 0) {
-			const currentState = saveState();
-			const nextState = futureRef.current.shift();
+		if (redoStack.length > 0) {
+			const markers = geojsonRef.current.features
+				.filter((feature) => feature.geometry.type === "Point")
+				.map((feature) => feature.geometry.coordinates);
 
-			historyRef.current.push(currentState);
-			restoreState(nextState);
+			const markerToRedo = redoStack[redoStack.length - 1];
+			const newMarkers = [...markers, markerToRedo];
 
-			// Update the map immediately
-			if (mapRef.current) {
-				mapRef.current.getSource("geojson").setData(geojsonRef.current);
-			}
-
-			// Recalculate distances after restoring the state
-			recalculateDistances();
-
-			// Update latest lat/lng
-			const lastPoint = geojsonRef.current.features
-				.filter((f) => f.geometry.type === "Point")
-				.pop();
-			if (lastPoint) {
-				setLatestLatLng(lastPoint.geometry.coordinates);
-			} else {
-				setLatestLatLng(null);
-			}
+			setRedoStack((prevStack) => prevStack.slice(0, -1));
+			setUndoStack((prevStack) => [...prevStack, markerToRedo]);
+			updateRouteAfterUndo(newMarkers);
 		}
-	}, [saveState, restoreState, recalculateDistances]);
+	}, [redoStack, updateRouteAfterUndo]);
+
+	const updatePOIsAfterUndo = useCallback((newMarkers) => {
+		setPointsOfInterest((prevPois) => {
+			return prevPois.filter((poi) => {
+				const poiPoint = turf.point(poi.lngLat);
+				const updatedLine = turf.lineString(newMarkers);
+				const snappedPoint = turf.nearestPointOnLine(updatedLine, poiPoint);
+				return turf.distance(poiPoint, snappedPoint, { units: "meters" }) < 10;
+			});
+		});
+	}, []);
 
 	const handleClear = useCallback(() => {
 		const confirmDelete = window.confirm(
@@ -1257,35 +1328,42 @@ const MapBox = ({ mmdObj }) => {
 	/*
 	 * Points of Interest
 	 */
-	const handleCurrentPositionMarkerClick = useCallback((e) => {
-		e.preventDefault();
-		e.stopPropagation();
+	const handleCurrentPositionMarkerClick = useCallback(
+		(e) => {
+			e.preventDefault();
+			e.stopPropagation();
 
-		// Only proceed if the user is Premium AND the route is new or editable
-		if (
-			isPremiumUser &&
-			(isNewRouteRef.current ||
-				(isRouteEditableRef.current && allowRouteEditingRef.current))
-		) {
-			const lngLat = currentPositionMarkerRef.current.getLngLat();
-			setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
-		} else {
-			if (userDetails) {
-				if (!isPremiumUser) {
-					toast.info(__("Points of Interest are a Premium feature", "mmd"), {
-						toastId: "is-route-editable",
+			// Use the current state values instead of refs
+			if (
+				isPremiumUser &&
+				(isNewRoute || (isRouteEditable && allowRouteEditing))
+			) {
+				const lngLat = currentPositionMarkerRef.current.getLngLat();
+				setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
+			} else {
+				if (userDetails) {
+					if (!isPremiumUser) {
+						toast.info(__("Points of Interest are a Premium feature", "mmd"), {
+							toastId: "premium-feature",
+						});
+					} else if (!isRouteEditable) {
+						toast.info(__("The route is not currently editable", "mmd"), {
+							toastId: "route-not-editable",
+						});
+					} else if (!allowRouteEditing) {
+						toast.info(__("Editing is not allowed for this route", "mmd"), {
+							toastId: "editing-not-allowed",
+						});
+					}
+				} else {
+					toast.info(__("Please Signup or Login to edit a route", "mmd"), {
+						toastId: "login-required",
 					});
 				}
-			} else {
-				toast.info(__("Please Signup or Login to edit a route", "mmd"), {
-					toastId: "is-route-editable",
-				});
 			}
-			toast.info(__("The route is not editable", "mmd"), {
-				toastId: "is-route-editable",
-			});
-		}
-	}, []);
+		},
+		[isPremiumUser, isNewRoute, isRouteEditable, allowRouteEditing, userDetails]
+	);
 
 	const updateCurrentPositionMarker = useCallback(
 		(position) => {
@@ -1304,10 +1382,7 @@ const MapBox = ({ mmdObj }) => {
 			const markerElement = currentPositionMarkerRef.current.getElement();
 
 			// Update the marker's appearance based on editability
-			if (
-				isNewRouteRef.current ||
-				(isRouteEditableRef.current && allowRouteEditingRef.current)
-			) {
+			if (isNewRoute || (isRouteEditable && allowRouteEditing)) {
 				markerElement.style.cursor = "pointer";
 				markerElement.title = __("Click to add a point of interest", "mmd");
 			} else {
@@ -1324,7 +1399,12 @@ const MapBox = ({ mmdObj }) => {
 			// Always add the click listener (the handler will check for editability)
 			markerElement.addEventListener("click", handleCurrentPositionMarkerClick);
 		},
-		[handleCurrentPositionMarkerClick]
+		[
+			handleCurrentPositionMarkerClick,
+			isNewRoute,
+			isRouteEditable,
+			allowRouteEditing,
+		]
 	);
 
 	// Update these functions to set both state and ref
@@ -1574,9 +1654,9 @@ const MapBox = ({ mmdObj }) => {
 				units={units}
 				onUnitChange={handleUnitChange}
 				onUndo={handleUndo}
-				canUndo={historyRef.current.length > 0}
+				canUndo={undoStack.length > 0} // historyRef.current.length > 0
 				onRedo={handleRedo}
-				canRedo={futureRef.current.length > 0}
+				canRedo={redoStack.length > 0} // futureRef.current.length > 0
 				onClear={handleClear}
 				onSaveRoute={handleSaveRoute}
 				canDeleteSave={linestringRef.current.geometry.coordinates.length > 1}
