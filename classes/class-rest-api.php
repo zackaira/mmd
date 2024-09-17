@@ -482,6 +482,9 @@ class MapMyDistance_Rest_Routes {
 			error_log('JSON decode error in mmd_get_route: ' . json_last_error_msg());
 			return new WP_Error('json_decode_error', 'Failed to decode route data', ['status' => 500]);
 		}
+
+		// Check if the current user is the route owner
+		$is_route_owner = ($current_user_id && $current_user_id == $route['original_creator'] && $route['association_type'] == 'owner');
 	
 		// Prepare the response in a consistent format
 		$response = [
@@ -493,7 +496,7 @@ class MapMyDistance_Rest_Routes {
 				'routeTags' => explode(',', $route['route_tags']),
 				'routeActivity' => $route['route_activity'],
 				'routeDistance' => floatval($route['route_distance']),
-				'isRouteOwner' => $route['association_type'] == 'owner',
+				'isRouteOwner' => $is_route_owner,
 				'routeData' => $route_data
 			],
 		];

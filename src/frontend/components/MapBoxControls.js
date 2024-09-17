@@ -127,7 +127,7 @@ const MapBoxControls = ({
 				</div>
 				{!isRouteEditable && (
 					<div className="mmd-controls">
-						{allowRouteEditing && (
+						{(routeData?.isRouteOwner || allowRouteEditing) && (
 							<div
 								className="fa-solid fa-edit mmd-control edit"
 								onClick={onToggleEditable}

@@ -28,6 +28,7 @@ const SaveEditForm = ({
 }) => {
 	const routeNameRef = useRef(null);
 	const [trixContent, setTrixContent] = useState(routeDescription);
+	const [isDescriptionModified, setIsDescriptionModified] = useState(false);
 
 	useEffect(() => {
 		if (routeNameRef.current) {
@@ -35,11 +36,22 @@ const SaveEditForm = ({
 		}
 	}, []);
 
+	useEffect(() => {
+		setTrixContent(routeDescription);
+		setIsDescriptionModified(false);
+	}, [routeDescription]);
+
 	const handleSubmit = (e, saveAsNew = false) => {
 		e.preventDefault();
 		const formData = {
 			routeName,
-			routeDescription: isPremiumUser ? trixContent : routeDescription,
+			routeDescription: isPremiumUser
+				? isDescriptionModified
+					? trixContent
+					: routeDescription
+				: isDescriptionModified
+				? routeDescription
+				: undefined,
 			routeTags,
 			routeActivity,
 			allowRouteEditing,
@@ -50,6 +62,7 @@ const SaveEditForm = ({
 	const handleTrixChange = (newContent) => {
 		setTrixContent(newContent);
 		setRouteDescription(newContent);
+		setIsDescriptionModified(true);
 		onFormChange();
 	};
 
@@ -61,6 +74,7 @@ const SaveEditForm = ({
 				break;
 			case "routeDescription":
 				setRouteDescription(value);
+				setIsDescriptionModified(true);
 				break;
 			case "routeActivity":
 				setRouteActivity(value);
@@ -217,7 +231,11 @@ const SaveEditForm = ({
 							>
 								{__("Update Route", "mmd")}
 							</button>
-							<button type="button" onClick={(e) => handleSubmit(e, true)}>
+							<button
+								type="button"
+								className="button alt"
+								onClick={(e) => handleSubmit(e, true)}
+							>
 								{__("Save as New Route", "mmd")}
 							</button>
 						</>

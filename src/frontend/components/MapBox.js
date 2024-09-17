@@ -64,6 +64,8 @@ const MapBox = ({ mmdObj }) => {
 			coordinates: [],
 		},
 	});
+	const [userLocation, setUserLocation] = useState(null);
+	const [mapZoom, setMapZoom] = useState(15);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [isNewRoute, setIsNewRoute] = useState(true);
@@ -83,7 +85,6 @@ const MapBox = ({ mmdObj }) => {
 	const [fullDistance, setFullDistance] = useState(0);
 	const [units, setUnits] = useState(mmdObj?.userDetails?.units || "km");
 	const [latestLatLng, setLatestLatLng] = useState(null);
-	const [userLocation, setUserLocation] = useState(null);
 	const historyRef = useRef([]);
 	const futureRef = useRef([]);
 	const canZoomToBounds =
@@ -125,25 +126,49 @@ const MapBox = ({ mmdObj }) => {
 	useEffect(() => {
 		if (!mapInitialized) return;
 
-		const loadRouteFromCookie = () => {
-			const savedRoute = Cookies.get("mmd_saved_route");
-			if (savedRoute) {
-				try {
-					const routeData = JSON.parse(savedRoute);
-					loadSavedRoute(routeData, true);
-					Cookies.remove("mmd_saved_route");
-				} catch (error) {
-					console.error("Error loading saved route:", error);
-				}
-			}
-		};
-
 		if (mmdObj.routeId) {
 			loadSavedRoute(mmdObj.routeId, false);
 		} else if (userDetails) {
 			loadRouteFromCookie();
 		}
-	}, [mapInitialized, mmdObj.routeId, userDetails, loadSavedRoute]);
+	}, [
+		mapInitialized,
+		mmdObj.routeId,
+		userDetails,
+		loadSavedRoute,
+		loadRouteFromCookie,
+	]);
+
+	const loadRouteFromCookie = useCallback(() => {
+		const savedRoute = Cookies.get("mmd_saved_route");
+		if (savedRoute) {
+			try {
+				const routeData = JSON.parse(savedRoute);
+				loadSavedRoute(routeData, true);
+
+				// Restore the URL if it was a shared route
+				if (routeData.url && routeData.url !== window.location.href) {
+					window.history.replaceState({}, "", routeData.url);
+				}
+
+				// Update loadedRouteData with the full route information
+				setLoadedRouteData({
+					routeName: routeData.routeName,
+					routeDescription: routeData.routeDescription,
+					routeTags: routeData.routeTags,
+					routeActivity: routeData.routeActivity,
+					routeId: routeData.routeId,
+					isRouteOwner: routeData.isRouteOwner,
+					routeDistance: routeData.routeDistance,
+					routeData: routeData.routeData,
+				});
+
+				Cookies.remove("mmd_saved_route");
+			} catch (error) {
+				console.error("Error loading saved route:", error);
+			}
+		}
+	}, [loadSavedRoute, setLoadedRouteData]);
 
 	useEffect(() => {
 		if (mmdObj.routeId) {
@@ -160,6 +185,7 @@ const MapBox = ({ mmdObj }) => {
 		(routeIdOrData, isFromCookie = false) => {
 			if (routeLoadingRef.current) return;
 			routeLoadingRef.current = true;
+			setIsRouteEditableAndRef(false);
 			setIsLoading(true);
 
 			const processRouteData = (routeData) => {
@@ -226,17 +252,25 @@ const MapBox = ({ mmdObj }) => {
 				// Process Points of Interest
 				setPointsOfInterest(routeData.routeData.pointsOfInterest || []);
 
+				setLoadedRouteData({
+					routeName: routeData.routeName || "",
+					routeDescription: routeData.routeDescription || "",
+					routeTags: routeData.routeTags || [],
+					routeActivity: routeData.routeActivity || "",
+					routeId: routeData.routeId || null,
+					isRouteOwner: routeData.isRouteOwner || false,
+					routeDistance: routeData.routeDistance || 0,
+					routeData: routeData.routeData,
+				});
+
 				// Update the map when it's available
 				if (mapRef.current && mapRef.current.getSource("geojson")) {
 					mapRef.current.getSource("geojson").setData(geojsonRef.current);
 
-					// Fit the map to the route bounds
-					if (routeData.routeData.bounds) {
-						mapRef.current.fitBounds(routeData.routeData.bounds, {
-							padding: { top: 50, bottom: 50, left: 50, right: 50 },
-							duration: 1000,
-						});
-					}
+					// Use setTimeout to ensure the map has updated before zooming
+					setTimeout(() => {
+						zoomToBoundingBox();
+					}, 100);
 
 					// Update click handlers
 					if (isFromCookie || routeData.routeData.allowRouteEditing) {
@@ -274,7 +308,7 @@ const MapBox = ({ mmdObj }) => {
 						}
 					})
 					.catch((error) => {
-						console.error("Error loading route:", error);
+						// console.error("Error loading route:", error);
 						toast.error(__("Failed to load route. Please try again.", "mmd"));
 					})
 					.finally(() => {
@@ -284,7 +318,7 @@ const MapBox = ({ mmdObj }) => {
 			} else if (isFromCookie) {
 				processRouteData(routeIdOrData);
 			} else {
-				console.error("Invalid route data or ID:", routeIdOrData);
+				// console.error("Invalid route data or ID:", routeIdOrData);
 				toast.error(__("Invalid route data. Please try again", "mmd"));
 				routeLoadingRef.current = false;
 				setIsLoading(false);
@@ -306,6 +340,7 @@ const MapBox = ({ mmdObj }) => {
 			handleMapClick,
 			mmdObj.apiUrl,
 			mmdObj.nonce,
+			setLoadedRouteData,
 		]
 	);
 
@@ -323,6 +358,13 @@ const MapBox = ({ mmdObj }) => {
 		const cookieData = {
 			routeDistance: rawFullDistance,
 			routeData: routeData,
+			routeName: loadedRouteData?.routeName || "",
+			routeDescription: loadedRouteData?.routeDescription || "",
+			routeTags: loadedRouteData?.routeTags || [],
+			routeActivity: loadedRouteData?.routeActivity || "",
+			routeId: loadedRouteData?.routeId || null,
+			isRouteOwner: loadedRouteData?.isRouteOwner || false,
+			url: window.location.href,
 		};
 		Cookies.set("mmd_saved_route", JSON.stringify(cookieData), { expires: 1 }); // Expires in 1 day
 	}, [
@@ -332,10 +374,11 @@ const MapBox = ({ mmdObj }) => {
 		units,
 		allowRouteEditing,
 		pointsOfInterest,
+		loadedRouteData,
 	]);
 
 	const toggleRouteEditable = useCallback(() => {
-		if (allowRouteEditingRef.current) {
+		if (loadedRouteData?.isRouteOwner || allowRouteEditingRef.current) {
 			setIsRouteEditableAndRef((prev) => {
 				const newValue = !prev;
 				if (mapRef.current) {
@@ -360,7 +403,7 @@ const MapBox = ({ mmdObj }) => {
 				toastId: "is-route-editable",
 			});
 		}
-	}, [setIsRouteEditableAndRef, handleMapClick]);
+	}, [setIsRouteEditableAndRef, handleMapClick, loadedRouteData]);
 
 	const handleToggleSearch = useCallback(() => {
 		setIsSearchOpen((prev) => !prev);
@@ -480,10 +523,26 @@ const MapBox = ({ mmdObj }) => {
 				(position) => {
 					const { latitude, longitude } = position.coords;
 					setUserLocation([longitude, latitude]);
+					setMapZoom(15); // Zoom level for precise location
 				},
 				(error) => {
-					console.error("Error getting user location:", error);
-					setUserLocation([-74.5, 40]); // Fallback location
+					// console.error("Error getting user location:", error);
+					toast.error(
+						<div>
+							{__(
+								"Error getting your location, find your localion manually, ",
+								"mmd"
+							)}
+							<span className="mmd-toast-link" onClick={handleToggleSearch}>
+								{__("Using Search", "mmd")}
+							</span>
+						</div>,
+						{
+							autoClose: 10000,
+							toastId: "geolocation-error",
+						}
+					);
+					setFallbackLocation();
 				},
 				{
 					enableHighAccuracy: true,
@@ -492,12 +551,18 @@ const MapBox = ({ mmdObj }) => {
 				}
 			);
 		} else {
-			toast.error("Geolocation did not load in your browser", {
-				toastId: routeId,
+			toast.error("Geolocation is not supported in your browser", {
+				toastId: "geolocation-error",
 			});
-			setUserLocation([-74.5, 40]); // Fallback location
+			setFallbackLocation();
 		}
-	}, []);
+	}, [mmdObj.userDetails]);
+
+	const setFallbackLocation = () => {
+		const fallbackLocation = { coords: [25.0339, -29.0852], zoom: 5 };
+		setUserLocation(fallbackLocation.coords);
+		setMapZoom(fallbackLocation.zoom);
+	};
 
 	useEffect(() => {
 		if (!userLocation || mapRef.current) return;
@@ -506,7 +571,7 @@ const MapBox = ({ mmdObj }) => {
 			container: mapContainerRef.current,
 			style: "mapbox://styles/mapbox/streets-v12",
 			center: userLocation,
-			zoom: 15,
+			zoom: mapZoom,
 		});
 		mapRef.current = map;
 
@@ -1031,7 +1096,7 @@ const MapBox = ({ mmdObj }) => {
 		mapRef.current.fitBounds(bounds, {
 			padding: { top: 50, bottom: 50, left: 50, right: 50 },
 			duration: 1000,
-			maxZoom: 16,
+			maxZoom: 15,
 		});
 	}, []);
 

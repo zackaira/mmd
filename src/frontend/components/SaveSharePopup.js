@@ -126,6 +126,8 @@ const SaveSharePopup = ({
 			},
 		};
 
+		console.log("submittedRouteData", submittedRouteData);
+
 		try {
 			const response = await fetch(endpoint, {
 				method: method,

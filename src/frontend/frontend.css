@@ -1,6 +1,15 @@
 /**
  * Frontend Styling
  */
+button.button.alt {
+	background: none !important;
+	color: var(--e-global-color-primary);
+	border: 1px solid var(--e-global-color-primary);
+}
+button.button.alt:hover {
+	background: var(--e-global-color-primary) !important;
+	color: #fff;
+}
 /* -- Loader -- */
 .mmd-loader-bg {
 	background-color: #fff;
@@ -96,14 +105,17 @@
 .Toastify__toast.mmd-toast .Toastify__toast-body {
 	padding: 0 10px;
 }
-.Toastify__toast.mmd-toast a {
+.Toastify__toast.mmd-toast a,
+.Toastify__toast span.mmd-toast-link {
 	color: #ffffff !important;
 	text-decoration: underline;
 	font-weight: bold;
 	margin: 0 5px;
 	letter-spacing: 0.4px;
+	cursor: pointer;
 }
-.Toastify__toast.mmd-toast a:hover {
+.Toastify__toast.mmd-toast a:hover,
+.Toastify__toast span.mmd-toast-link:hover {
 	color: var(--e-global-color-4a69d24) !important;
 }
 /* -- Mapbox Search Popup-- */
@@ -314,6 +326,11 @@ body.woocommerce-account .mmd-popup h3 {
 	transform: translateX(16px);
 }
 /* -- MMD Trix Editor-- */
+trix-editor {
+	font-size: 13px;
+	min-height: 85px;
+	color: #222;
+}
 trix-toolbar .trix-button-row {
 	padding: 0 3px;
 }
