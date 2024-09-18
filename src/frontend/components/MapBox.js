@@ -65,7 +65,7 @@ const MapBox = ({ mmdObj }) => {
 		},
 	});
 	const [userLocation, setUserLocation] = useState(null);
-	const [mapZoom, setMapZoom] = useState(15);
+	const [mapZoom, setMapZoom] = useState(16);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [isNewRoute, setIsNewRoute] = useState(true);
@@ -118,9 +118,6 @@ const MapBox = ({ mmdObj }) => {
 
 	const [undoStack, setUndoStack] = useState([]);
 	const [redoStack, setRedoStack] = useState([]);
-
-	console.log("undoStack: ", undoStack);
-	console.log("redoStack: ", redoStack);
 
 	// Update refs when state changes
 	useEffect(() => {
@@ -388,7 +385,7 @@ const MapBox = ({ mmdObj }) => {
 	]);
 
 	const toggleRouteEditable = useCallback(() => {
-		if (allowRouteEditingRef.current) {
+		if (loadedRouteData.isRouteOwner || allowRouteEditingRef.current) {
 			setIsRouteEditableAndRef((prev) => {
 				const newValue = !prev;
 				if (mapRef.current) {
@@ -533,7 +530,7 @@ const MapBox = ({ mmdObj }) => {
 				(position) => {
 					const { latitude, longitude } = position.coords;
 					setUserLocation([longitude, latitude]);
-					setMapZoom(15); // Zoom level for precise location
+					setMapZoom(16); // Zoom level for precise location
 				},
 				(error) => {
 					// console.error("Error getting user location:", error);
@@ -686,9 +683,10 @@ const MapBox = ({ mmdObj }) => {
 
 			const newPoint = [e.lngLat.lng, e.lngLat.lat];
 
-			const markerCount = geojsonRef.current.features.filter(
+			const markers = geojsonRef.current.features.filter(
 				(feature) => feature.geometry.type === "Point"
-			).length;
+			);
+			const markerCount = markers.length;
 
 			// Save the current state to the undo stack before making changes
 			setUndoStack((prevStack) => [...prevStack, saveState()]);
@@ -701,6 +699,7 @@ const MapBox = ({ mmdObj }) => {
 			) {
 				// Clicking on the first marker to close the route
 				await updateRoute(newPoint, true);
+				setIsRouteClosed(true);
 
 				toast.success("Route completed!", {
 					toastId: "route-closed",
@@ -788,6 +787,7 @@ const MapBox = ({ mmdObj }) => {
 							properties: {
 								...feature.properties,
 								totalMarkers,
+								isRouteClosed: isClosingLoop,
 							},
 						};
 					}
@@ -815,6 +815,7 @@ const MapBox = ({ mmdObj }) => {
 						id: String(new Date().getTime()),
 						markerNumber: totalMarkers,
 						totalMarkers,
+						isRouteClosed: false,
 					},
 				};
 
@@ -908,21 +909,13 @@ const MapBox = ({ mmdObj }) => {
 		const lineString = linestringRef.current.geometry.coordinates;
 
 		if (lineString.length >= 2) {
-			let totalDistanceKm = 0;
-			let lastDistanceKm = 0;
+			const route = turf.lineString(lineString);
+			const totalDistanceKm = turf.length(route, { units: "kilometers" });
 
-			for (let i = 1; i < lineString.length; i++) {
-				const segmentDistanceKm = turf.distance(
-					lineString[i - 1],
-					lineString[i],
-					{ units: "kilometers" }
-				);
-				totalDistanceKm += segmentDistanceKm;
-
-				if (i === lineString.length - 1) {
-					lastDistanceKm = segmentDistanceKm;
-				}
-			}
+			// Calculate last segment distance
+			const lastTwoPoints = lineString.slice(-2);
+			const lastSegment = turf.lineString(lastTwoPoints);
+			const lastDistanceKm = turf.length(lastSegment, { units: "kilometers" });
 
 			setRawFullDistance(totalDistanceKm);
 			setRawLastDistance(lastDistanceKm);
@@ -1035,11 +1028,13 @@ const MapBox = ({ mmdObj }) => {
 			setUndoStack((prevStack) => prevStack.slice(0, -1));
 			setRedoStack((prevStack) => [...prevStack, lastMarker]);
 			updateRouteAfterUndo(markers);
+			setIsRouteClosed(false); // Reset route closure state
 		} else if (markers.length === 1) {
 			// Clear the entire route if only one marker is left
 			setUndoStack((prevStack) => prevStack.slice(0, -1));
 			setRedoStack((prevStack) => [...prevStack, markers[0]]);
 			updateRouteAfterUndo([]);
+			setIsRouteClosed(false); // Reset route closure state
 		}
 
 		// Remove the current position marker
