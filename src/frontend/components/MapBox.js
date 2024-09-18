@@ -115,9 +115,13 @@ const MapBox = ({ mmdObj }) => {
 	const isNewRouteRef = useRef(isNewRoute);
 	const isRouteEditableRef = useRef(isRouteEditable);
 	const allowRouteEditingRef = useRef(allowRouteEditing);
+	const [isFormModified, setIsFormModified] = useState(false);
 
 	const [undoStack, setUndoStack] = useState([]);
 	const [redoStack, setRedoStack] = useState([]);
+	const isRouteClosedRef = useRef(isRouteClosed);
+	const [wasRouteJustClosed, setWasRouteJustClosed] = useState(false);
+	const markersRef = useRef([]);
 
 	// Update refs when state changes
 	useEffect(() => {
@@ -125,6 +129,16 @@ const MapBox = ({ mmdObj }) => {
 		isRouteEditableRef.current = isRouteEditable;
 		allowRouteEditingRef.current = allowRouteEditing;
 	}, [isNewRoute, isRouteEditable, allowRouteEditing]);
+
+	useEffect(() => {
+		isRouteClosedRef.current = isRouteClosed;
+	}, [isRouteClosed]);
+
+	useEffect(() => {
+		markersRef.current = geojsonRef.current.features
+			.filter((feature) => feature.geometry.type === "Point")
+			.map((feature) => feature.geometry.coordinates);
+	}, [geojsonRef.current.features]);
 
 	useEffect(() => {
 		if (!mapInitialized) return;
@@ -682,11 +696,9 @@ const MapBox = ({ mmdObj }) => {
 			});
 
 			const newPoint = [e.lngLat.lng, e.lngLat.lat];
-
-			const markers = geojsonRef.current.features.filter(
+			const markerCount = geojsonRef.current.features.filter(
 				(feature) => feature.geometry.type === "Point"
-			);
-			const markerCount = markers.length;
+			).length;
 
 			// Save the current state to the undo stack before making changes
 			setUndoStack((prevStack) => [...prevStack, saveState()]);
@@ -699,7 +711,8 @@ const MapBox = ({ mmdObj }) => {
 			) {
 				// Clicking on the first marker to close the route
 				await updateRoute(newPoint, true);
-				setIsRouteClosed(true);
+				setIsRouteClosed(true); // Close the route
+				setWasRouteJustClosed(true); // Track that the route was just closed
 
 				toast.success("Route completed!", {
 					toastId: "route-closed",
@@ -707,6 +720,7 @@ const MapBox = ({ mmdObj }) => {
 			} else if (!features.length) {
 				// Adding a new point
 				await updateRoute(newPoint, false);
+				setWasRouteJustClosed(false); // Reset closure state when adding a new point
 
 				if (!userDetails) {
 					saveRouteToCookie(); // Save route to cookie after each change
@@ -787,7 +801,6 @@ const MapBox = ({ mmdObj }) => {
 							properties: {
 								...feature.properties,
 								totalMarkers,
-								isRouteClosed: isClosingLoop,
 							},
 						};
 					}
@@ -815,7 +828,6 @@ const MapBox = ({ mmdObj }) => {
 						id: String(new Date().getTime()),
 						markerNumber: totalMarkers,
 						totalMarkers,
-						isRouteClosed: false,
 					},
 				};
 
@@ -840,6 +852,7 @@ const MapBox = ({ mmdObj }) => {
 
 			// Force a recalculation of distances
 			recalculateDistances();
+			setIsFormModified(true);
 		},
 		[recalculateDistances, snapToRoutesRef]
 	);
@@ -1019,47 +1032,51 @@ const MapBox = ({ mmdObj }) => {
 	);
 
 	const handleUndo = useCallback(() => {
-		const markers = geojsonRef.current.features
-			.filter((feature) => feature.geometry.type === "Point")
-			.map((feature) => feature.geometry.coordinates);
+		const markers = markersRef.current; // Get the current markers from the ref
 
 		if (markers.length > 1) {
-			const lastMarker = markers.pop();
-			setUndoStack((prevStack) => prevStack.slice(0, -1));
-			setRedoStack((prevStack) => [...prevStack, lastMarker]);
-			updateRouteAfterUndo(markers);
-			setIsRouteClosed(false); // Reset route closure state
-		} else if (markers.length === 1) {
-			// Clear the entire route if only one marker is left
-			setUndoStack((prevStack) => prevStack.slice(0, -1));
-			setRedoStack((prevStack) => [...prevStack, markers[0]]);
-			updateRouteAfterUndo([]);
-			setIsRouteClosed(false); // Reset route closure state
-		}
+			// If the route was just closed, undo the closure but keep the last marker intact
+			if (wasRouteJustClosed) {
+				setIsRouteClosed(false); // Reopen the route
+				setWasRouteJustClosed(false); // Reset the flag
+				setRedoStack((prevStack) => [
+					...prevStack,
+					markers[markers.length - 1],
+				]); // Add the closing marker to the redo stack
 
-		// Remove the current position marker
-		if (currentPositionMarkerRef.current) {
-			currentPositionMarkerRef.current.remove();
-			currentPositionMarkerRef.current = null;
-		}
+				// No need to pop the last marker, just update the route without the closure
+				updateRouteAfterUndo(markers);
+			} else {
+				// Normal undo behavior when the route isn't closed
+				const lastMarker = markers.pop();
+				setUndoStack((prevStack) => prevStack.slice(0, -1));
+				setRedoStack((prevStack) => [...prevStack, lastMarker]);
 
-		// Reset slider position
-		setSliderPosition(0);
-	}, [updateRouteAfterUndo, setSliderPosition]);
+				updateRouteAfterUndo(markers);
+			}
+		}
+		setIsFormModified(true);
+	}, [wasRouteJustClosed, updateRouteAfterUndo]);
 
 	const handleRedo = useCallback(() => {
-		if (redoStack.length > 0) {
-			const markers = geojsonRef.current.features
-				.filter((feature) => feature.geometry.type === "Point")
-				.map((feature) => feature.geometry.coordinates);
+		const markers = markersRef.current;
 
+		if (redoStack.length > 0) {
 			const markerToRedo = redoStack[redoStack.length - 1];
 			const newMarkers = [...markers, markerToRedo];
 
 			setRedoStack((prevStack) => prevStack.slice(0, -1));
 			setUndoStack((prevStack) => [...prevStack, markerToRedo]);
+
+			// If the marker being redone is the one that closes the loop, re-close the route
+			if (newMarkers.length >= 3 && markerToRedo === markers[0]) {
+				setIsRouteClosed(true);
+				setWasRouteJustClosed(true); // Set the flag to indicate the route was re-closed
+			}
+
 			updateRouteAfterUndo(newMarkers);
 		}
+		setIsFormModified(true);
 	}, [redoStack, updateRouteAfterUndo]);
 
 	const updatePOIsAfterUndo = useCallback((newMarkers) => {
@@ -1705,6 +1722,8 @@ const MapBox = ({ mmdObj }) => {
 				allowRouteEditing={allowRouteEditing}
 				setAllowRouteEditing={setAllowRouteEditing}
 				zoomToBoundingBox={zoomToBoundingBox}
+				isFormModified={isFormModified}
+				setIsFormModified={setIsFormModified}
 			/>
 
 			{/* <ElevationProfile

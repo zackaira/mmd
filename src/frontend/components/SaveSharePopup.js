@@ -19,6 +19,8 @@ const SaveSharePopup = ({
 	allowRouteEditing,
 	setAllowRouteEditing,
 	zoomToBoundingBox,
+	isFormModified,
+	setIsFormModified,
 }) => {
 	const [activeTab, setActiveTab] = useState(action);
 	const [routeName, setRouteName] = useState("");
@@ -37,8 +39,6 @@ const SaveSharePopup = ({
 
 	const [isSharedRoute, setIsSharedRoute] = useState(false);
 	const [isRouteOwner, setIsRouteOwner] = useState(false);
-
-	const [isFormModified, setIsFormModified] = useState(false);
 
 	useEffect(() => {
 		setActiveTab(action);
@@ -244,8 +244,8 @@ const SaveSharePopup = ({
 										isEditing={isEditing}
 										isRouteOwner={isRouteOwner}
 										isSaved={isSaved}
-										onFormChange={handleFormChange}
 										isFormModified={isFormModified}
+										setIsFormModified={setIsFormModified}
 									/>
 								)}
 								{activeTab === "share" && (

@@ -11,20 +11,22 @@ const EditRoutePopup = ({
 	onSave,
 	mmdObj,
 	isSaving,
+	isFormModified,
+	setIsFormModified,
 }) => {
 	const [routeName, setRouteName] = useState("");
-	const [description, setDescription] = useState("");
-	const [tags, setTags] = useState([]);
-	const [activity, setActivity] = useState("");
+	const [routeDescription, setRouteDescription] = useState("");
+	const [routeTags, setRouteTags] = useState([]);
+	const [routeActivity, setRouteActivity] = useState("");
 	const [allowRouteEditing, setAllowRouteEditing] = useState(false);
 
 	useEffect(() => {
 		if (isOpen && route) {
-			setRouteName(route.route_name || "");
-			setDescription(route.route_description || "");
-			setTags(route.route_tags ? route.route_tags.split(",") : []);
-			setActivity(route.route_activity || "");
-			setAllowRouteEditing(route.allowRouteEditing || false);
+			setRouteName(route.routeName || "");
+			setRouteDescription(route.routeDescription || "");
+			setRouteTags(route.routeTags ? route.routeTags : []);
+			setRouteActivity(route.routeActivity || "");
+			setAllowRouteEditing(route.routeData.allowRouteEditing || false);
 		}
 	}, [isOpen, route]);
 
@@ -32,11 +34,14 @@ const EditRoutePopup = ({
 		e.preventDefault();
 		const updatedRoute = {
 			...route,
-			route_name: routeName,
-			route_description: description,
-			route_tags: tags.join(","),
-			route_activity: activity,
-			allowRouteEditing: allowRouteEditing,
+			routeName: routeName,
+			routeDescription: routeDescription,
+			routeTags: routeTags.join(","),
+			routeActivity: routeActivity,
+			routeData: {
+				...route.routeData,
+				allowRouteEditing: allowRouteEditing,
+			},
 		};
 		await onSave(updatedRoute);
 		onClose();
@@ -47,7 +52,7 @@ const EditRoutePopup = ({
 			e.preventDefault();
 			const newTag = e.target.value.trim();
 			if (newTag && !tags.includes(newTag)) {
-				setTags([...tags, newTag]);
+				setRouteTags([...tags, newTag]);
 				e.target.value = "";
 			}
 		}
@@ -58,8 +63,6 @@ const EditRoutePopup = ({
 	};
 
 	if (!isOpen) return null;
-
-	console.log("EditRoutePopup description", description);
 
 	return (
 		<>
@@ -75,18 +78,19 @@ const EditRoutePopup = ({
 							isPremiumUser={isPremiumUser}
 							routeName={routeName}
 							setRouteName={setRouteName}
-							description={description}
-							setDescription={setDescription}
-							tags={tags}
-							activity={activity}
-							setActivity={setActivity}
+							routeDescription={routeDescription}
+							setRouteDescription={setRouteDescription}
+							routeTags={routeTags}
+							routeActivity={routeActivity}
+							setRouteActivity={setRouteActivity}
 							activities={mmdObj.userDetails.activities || []}
 							handleTagKeyDown={handleTagKeyDown}
 							removeTag={removeTag}
 							onSubmit={handleSubmit}
 							allowRouteEditing={allowRouteEditing}
 							setAllowRouteEditing={setAllowRouteEditing}
-							popupTitle={__("Edit Route", "mmd")}
+							isFormModified={isFormModified}
+							setIsFormModified={setIsFormModified}
 						/>
 					)}
 				</div>

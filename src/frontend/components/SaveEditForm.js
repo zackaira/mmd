@@ -18,13 +18,12 @@ const SaveEditForm = ({
 	onSubmit,
 	allowRouteEditing,
 	setAllowRouteEditing,
-	popupTitle,
 	isSharedRoute,
 	isEditing,
 	isRouteOwner,
 	isSaved,
-	onFormChange,
 	isFormModified,
+	setIsFormModified,
 }) => {
 	const routeNameRef = useRef(null);
 	const [trixContent, setTrixContent] = useState(routeDescription);
@@ -63,7 +62,7 @@ const SaveEditForm = ({
 		setTrixContent(newContent);
 		setRouteDescription(newContent);
 		setIsDescriptionModified(true);
-		onFormChange();
+		setIsFormModified(true);
 	};
 
 	const handleInputChange = (e) => {
@@ -80,33 +79,27 @@ const SaveEditForm = ({
 				setRouteActivity(value);
 				break;
 		}
-		onFormChange();
+		setIsFormModified(true);
 	};
 
 	const handleTagKeyDownWrapper = (e) => {
 		handleTagKeyDown(e);
-		onFormChange();
+		setIsFormModified(true);
 	};
 
 	const removeTagWrapper = (index) => {
 		removeTag(index);
-		onFormChange();
+		setIsFormModified(true);
 	};
 
 	return (
 		<div className="content save">
 			<h3>
-				{popupTitle ? (
-					popupTitle
-				) : (
-					<>
-						{isSharedRoute && !isEditing
-							? __("Save Shared Route:", "mmd")
-							: isEditing
-							? __("Edit Your Route:", "mmd")
-							: __("Save Your Route:", "mmd")}
-					</>
-				)}
+				{isSharedRoute && !isEditing
+					? __("Save Shared Route:", "mmd")
+					: isEditing
+					? __("Edit Your Route:", "mmd")
+					: __("Save Your Route:", "mmd")}
 			</h3>
 			<p>
 				{__(
@@ -214,7 +207,7 @@ const SaveEditForm = ({
 								value={allowRouteEditing}
 								onChange={() => {
 									setAllowRouteEditing(!allowRouteEditing);
-									onFormChange();
+									setIsFormModified(true);
 								}}
 							/>
 						</div>
@@ -222,7 +215,7 @@ const SaveEditForm = ({
 				)}
 
 				<div className="mmd-button-group">
-					{isSaved ? (
+					{isSaved || isSharedRoute ? (
 						<>
 							<button
 								type="submit"

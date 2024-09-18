@@ -17,6 +17,7 @@ const AccountRoutes = ({ mmdObj }) => {
 	const routesPerPage = 20;
 	const [editingRoute, setEditingRoute] = useState(null);
 	const [isSaving, setIsSaving] = useState(false);
+	const [isFormModified, setIsFormModified] = useState(false);
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -39,6 +40,8 @@ const AccountRoutes = ({ mmdObj }) => {
 				const data = await response.json();
 
 				if (data.success) {
+					console.log("data", data);
+
 					setSavedRoutes(data.routes);
 					setTotalRoutes(data.total);
 					setTotalPages(Math.ceil(data.total / routesPerPage));
@@ -154,9 +157,9 @@ const AccountRoutes = ({ mmdObj }) => {
 
 	const handleEditRoute = (route) => {
 		const routeData =
-			typeof route.route_data === "string"
-				? JSON.parse(route.route_data)
-				: route.route_data;
+			typeof route.routeData === "string"
+				? JSON.parse(route.routeData)
+				: route.routeData;
 
 		setEditingRoute({
 			...route,
@@ -166,6 +169,9 @@ const AccountRoutes = ({ mmdObj }) => {
 
 	const handleSaveEditedRoute = async (updatedRoute) => {
 		setIsSaving(true);
+
+		console.log("Updated Route Data: ", updatedRoute);
+
 		try {
 			const response = await fetch(
 				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.id}`,
@@ -176,12 +182,14 @@ const AccountRoutes = ({ mmdObj }) => {
 						"X-WP-Nonce": mmdObj.nonce,
 					},
 					body: JSON.stringify({
-						user_id: userDetails.user_id,
-						route_name: updatedRoute.route_name,
-						route_description: updatedRoute.route_description,
-						route_tags: updatedRoute.route_tags,
-						route_activity: updatedRoute.route_activity,
-						allowRouteEditing: updatedRoute.allowRouteEditing,
+						routeName: updatedRoute.routeName,
+						routeDescription: updatedRoute.routeDescription,
+						routeTags: updatedRoute.routeTags,
+						routeActivity: updatedRoute.routeActivity,
+						routeData: {
+							...routeData.routeData,
+							allowRouteEditing: formData.allowRouteEditing,
+						},
 					}),
 					credentials: "include",
 				}
@@ -196,6 +204,8 @@ const AccountRoutes = ({ mmdObj }) => {
 			console.log("Response from server:", data);
 
 			if (data.success) {
+				console.log("Edit Return: ", data);
+
 				toast.success(__("Route updated successfully!", "mmd"));
 				setSavedRoutes((prevRoutes) => {
 					const updatedRoutes = prevRoutes.map((route) =>
@@ -218,8 +228,10 @@ const AccountRoutes = ({ mmdObj }) => {
 	};
 
 	const stripHtmlTags = (html) => {
-		return html.replace(/<[^>]*>/g, "");
+		return html?.replace(/<[^>]*>/g, "");
 	};
+
+	console.log("savedRoutes", savedRoutes);
 
 	return (
 		<div className="mmd-routes">
@@ -240,9 +252,9 @@ const AccountRoutes = ({ mmdObj }) => {
 								<div className="route-controls"></div>
 							</div>
 							{savedRoutes.map((route, index) => {
-								const routeData = parseRouteData(route.route_data);
+								const routeData = parseRouteData(route.routeData);
 								const savedUnits = routeData.units || "km";
-								const distanceInKm = parseFloat(route.distance);
+								const distanceInKm = parseFloat(route.routeDistance);
 								const convertedDistance =
 									savedUnits === "km"
 										? distanceInKm
@@ -250,7 +262,7 @@ const AccountRoutes = ({ mmdObj }) => {
 
 								return (
 									<div
-										key={route.id}
+										key={route.routeId}
 										className={`mmd-route ${
 											index % 2 === 0 ? "alt-background" : ""
 										}`}
@@ -260,9 +272,9 @@ const AccountRoutes = ({ mmdObj }) => {
 												<Loader width={20} height={20} />
 											</div>
 										)}
-										<h4 className="route-title">{route.route_name}</h4>
+										<h4 className="route-title">{route.routeName}</h4>
 										<p className="route-desc">
-											{stripHtmlTags(route.route_description)}
+											{stripHtmlTags(route.routeDescription)}
 										</p>
 										<div className="route-distance">
 											{convertedDistance.toFixed(2)} {getUnitName(savedUnits)}
@@ -273,7 +285,7 @@ const AccountRoutes = ({ mmdObj }) => {
 										<div className="route-controls">
 											<span
 												className="fa-solid fa-copy mmd-route-icon copy"
-												onClick={() => handleCopyRouteUrl(route.id)}
+												onClick={() => handleCopyRouteUrl(route.routeId)}
 												title={__("Copy Route URL", "mmd")}
 											></span>
 											<span
@@ -283,7 +295,7 @@ const AccountRoutes = ({ mmdObj }) => {
 											></span>
 											<span
 												className="fa-solid fa-trash-can mmd-route-icon delete"
-												onClick={() => handleDeleteRoute(route.id)}
+												onClick={() => handleDeleteRoute(route.routeId)}
 												title={__("Delete This Route", "mmd")}
 											></span>
 										</div>
@@ -333,6 +345,8 @@ const AccountRoutes = ({ mmdObj }) => {
 				onSave={handleSaveEditedRoute}
 				mmdObj={mmdObj}
 				isSaving={isSaving}
+				isFormModified={isFormModified}
+				setIsFormModified={setIsFormModified}
 			/>
 
 			<ToastContainer

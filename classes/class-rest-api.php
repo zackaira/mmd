@@ -423,7 +423,8 @@ class MapMyDistance_Rest_Routes {
 				'routeActivity' => $updated_route['route_activity'],
 				'routeDistance' => floatval($updated_route['route_distance']),
 				'isRouteOwner' => ($user_association->association_type === 'owner'),
-				'routeData' => json_decode($updated_route['route_data'], true)
+				'routeData' => json_decode($updated_route['route_data'], true),
+				'created_at' => $updated_route['created_at']
 			]
 		];
 	
@@ -550,8 +551,17 @@ class MapMyDistance_Rest_Routes {
 	
 		// Decode the JSON stored in route_data for each route and add isRouteOwner flag
 		foreach ($routes as &$route) {
-			$route['route_data'] = json_decode($route['route_data'], true);
-			$route['isRouteOwner'] = ($route['association_type'] === 'owner');
+			$route = [
+				'routeId' => $route['id'],
+				'routeName' => $route['route_name'],
+				'routeDescription' => $route['route_description'],
+				'routeTags' => explode(',', $route['route_tags']),
+				'routeActivity' => $route['route_activity'],
+				'routeDistance' => floatval($route['route_distance']),
+				'isRouteOwner' => ($route['association_type'] === 'owner'),
+				'routeData' => json_decode($route['route_data'], true),
+				'created_at' => $route['created_at']
+			];
 		}
 	
 		return rest_ensure_response([
