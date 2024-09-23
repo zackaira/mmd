@@ -40,6 +40,8 @@ const SaveSharePopup = ({
 	const [isSharedRoute, setIsSharedRoute] = useState(false);
 	const [isRouteOwner, setIsRouteOwner] = useState(false);
 
+	// console.log("routeData: ", routeData);
+
 	useEffect(() => {
 		setActiveTab(action);
 	}, [action]);
@@ -58,8 +60,7 @@ const SaveSharePopup = ({
 				setAllowRouteEditing(routeData.routeData?.allowRouteEditing || false);
 				setExistingRouteId(routeData.routeId || null);
 				setIsSharedRoute(
-					routeData.originalCreator &&
-						routeData.originalCreator !== userDetails.id
+					routeData.isRouteOwner && routeData.isRouteOwner === false
 				);
 				setIsRouteOwner(routeData?.isRouteOwner || false);
 				setIsEditing(!!routeData.routeId);

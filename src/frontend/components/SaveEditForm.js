@@ -35,6 +35,9 @@ const SaveEditForm = ({
 		}
 	}, []);
 
+	console.log("isSaved: ", isSaved);
+	console.log("isSharedRoute: ", isSharedRoute);
+
 	useEffect(() => {
 		setTrixContent(routeDescription);
 		setIsDescriptionModified(false);
@@ -194,7 +197,7 @@ const SaveEditForm = ({
 					</div>
 				)}
 
-				{(!isEditing || isRouteOwner) && (
+				{isRouteOwner && (
 					<div className="mmd-form-row">
 						<div className="toggle-switch-container">
 							<label className="toggle-switch-label" htmlFor="route-editable">

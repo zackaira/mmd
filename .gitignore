@@ -11,3 +11,4 @@ index.js.map
 *.log
 /yarn.lock
 .vscode
+.env

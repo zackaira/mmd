@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
+import { toast } from "react-toastify";
 import parse from "html-react-parser";
+// import { mapStyles } from "../../utils";
 
 const MapBoxControls = ({
+	userDetails,
 	isRouteEditable,
 	allowRouteEditing,
 	onToggleEditable,
@@ -33,6 +36,9 @@ const MapBoxControls = ({
 	arePoisVisible,
 	onPoiClick,
 	onTogglePoiVisibility,
+	isPlacingPoi,
+	onAddPoi,
+	currentMapStyle,
 }) => {
 	const [isBoxHidden, setIsBoxHidden] = useState(false);
 
@@ -55,6 +61,10 @@ const MapBoxControls = ({
 	const handleSliderChange = (event) => {
 		const newPosition = parseInt(event.target.value, 10);
 		onSliderChange(newPosition);
+	};
+
+	const handleAddPoi = () => {
+		onAddPoi();
 	};
 
 	return (
@@ -191,12 +201,12 @@ const MapBoxControls = ({
 							title={__("Search Location", "mmd")}
 						></div>
 						{/* <div
-						className={`fa-solid fa-mountain-sun mmd-control elevation ${
-							showElevationProfile ? "active" : ""
-						}`}
-						onClick={onToggleElevationProfile}
-						title={__("Route Elevation", "mmd")}
-					></div> */}
+							className={`fa-solid fa-mountain-sun mmd-control elevation ${
+								showElevationProfile ? "active" : ""
+							}`}
+							onClick={onToggleElevationProfile}
+							title={__("Route Elevation", "mmd")}
+						></div> */}
 
 						<div
 							className={`fa-solid fa-trash-can mmd-control clear ${
@@ -223,13 +233,32 @@ const MapBoxControls = ({
 								: {})}
 							title={__("Share This Route", "mmd")}
 						></div>
-						{/* <div
-							className={`fa-solid fa-plus mmd-control share ${
-								canDeleteSave ? "" : "disabled"
+						<div
+							className={`fa-solid fa-plus mmd-control addpoi ${
+								isPlacingPoi ? "active" : ""
 							}`}
-							{...(canDeleteSave ? { onClick: onAddPOI } : {})}
+							{...((routeData?.isRouteOwner || allowRouteEditing) &&
+							userDetails?.isPremium
+								? { onClick: handleAddPoi }
+								: {
+										onClick: () => {
+											if (!userDetails) {
+												toast.error(
+													__(
+														"Points of interest are logged in Pro feature. Please login.",
+														"mmd"
+													)
+												);
+											}
+											if (!userDetails.isPremium) {
+												toast.error(
+													__("Points of interest are a Premium feature.", "mmd")
+												);
+											}
+										},
+								  })}
 							title={__("Add a Point of Interest", "mmd")}
-						></div> */}
+						></div>
 					</div>
 				)}
 
@@ -283,6 +312,21 @@ const MapBoxControls = ({
 						)}
 					</>
 				)}
+
+				{/* <div className="mmd-map-style-selector">
+					<label htmlFor="mmd-map-style">{__("Map Style:", "mmd")}</label>
+					<select
+						id="mmd-map-style"
+						value={currentMapStyle}
+						onChange={(e) => onMapStyleChange(e.target.value)}
+					>
+						{mapStyles.map((style) => (
+							<option key={style.value} value={style.value}>
+								{style.name}
+							</option>
+						))}
+					</select>
+				</div> */}
 			</div>
 		</>
 	);

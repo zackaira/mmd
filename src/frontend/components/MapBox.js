@@ -18,37 +18,10 @@ import SaveSharePopup from "./SaveSharePopup";
 import Loader from "../../Loader";
 import Cookies from "js-cookie";
 import PoiForm from "./PoiForm";
+import { debounce, convertDistance } from "../../utils";
 // import ElevationProfile from "./ElevationProfile";
 
-mapboxgl.accessToken =
-	"pk.eyJ1IjoiemFja2FpcmEiLCJhIjoiY2x6czFzcDlnMGk4eDJpczk0aGU1Zms0aiJ9.rtKaICIv9h1DOrpNupfRzw";
-
-const conversionFactors = {
-	km: 1,
-	mi: 0.621371,
-	m: 1000,
-	ft: 3280.84,
-	yd: 1093.61,
-	nm: 0.539957,
-};
-
-const convertDistance = (distance, fromUnit, toUnit) => {
-	const inKm =
-		fromUnit === "km" ? distance : distance / conversionFactors[fromUnit];
-	return toUnit === "km" ? inKm : inKm * conversionFactors[toUnit];
-};
-
-function debounce(func, wait) {
-	let timeout;
-	return function executedFunction(...args) {
-		const later = () => {
-			clearTimeout(timeout);
-			func(...args);
-		};
-		clearTimeout(timeout);
-		timeout = setTimeout(later, wait);
-	};
-}
+mapboxgl.accessToken = process.env.MMD_MAPBOX_ACCESS_TOKEN;
 
 const MapBox = ({ mmdObj }) => {
 	const mapContainerRef = useRef(null);
@@ -66,6 +39,9 @@ const MapBox = ({ mmdObj }) => {
 	});
 	const [userLocation, setUserLocation] = useState(null);
 	const [mapZoom, setMapZoom] = useState(16);
+	const [currentMapStyle, setCurrentMapStyle] = useState(
+		"mapbox://styles/mapbox/streets-v12"
+	);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [isNewRoute, setIsNewRoute] = useState(true);
@@ -110,6 +86,8 @@ const MapBox = ({ mmdObj }) => {
 	const [pointsOfInterest, setPointsOfInterest] = useState([]);
 	const [editingPoi, setEditingPoi] = useState(null);
 	const [arePoisVisible, setArePoisVisible] = useState(true);
+	const [newPoiLocation, setNewPoiLocation] = useState(null);
+	const [isPlacingPoi, setIsPlacingPoi] = useState(false);
 
 	const poiMarkersRef = useRef({});
 	const isNewRouteRef = useRef(isNewRoute);
@@ -268,6 +246,10 @@ const MapBox = ({ mmdObj }) => {
 
 				// Process Points of Interest
 				setPointsOfInterest(routeData.routeData.pointsOfInterest || []);
+
+				if (routeData.mapStyle) {
+					handleMapStyleChange(routeData.mapStyle);
+				}
 
 				setLoadedRouteData({
 					routeName: routeData.routeName || "",
@@ -590,7 +572,7 @@ const MapBox = ({ mmdObj }) => {
 
 		const map = new mapboxgl.Map({
 			container: mapContainerRef.current,
-			style: "mapbox://styles/mapbox/streets-v12",
+			style: currentMapStyle,
 			center: userLocation,
 			zoom: mapZoom,
 		});
@@ -677,66 +659,81 @@ const MapBox = ({ mmdObj }) => {
 
 	const handleMapClick = useCallback(
 		async (e) => {
-			if (!isRouteEditable) return;
-
-			// Check if the click is on the current position marker or a POI marker
-			if (
-				e.originalEvent.target.classList.contains("current-position-marker") ||
-				e.originalEvent.target.classList.contains("mmd-poi-marker") ||
-				e.originalEvent.target.closest(".mapboxgl-popup")
-			) {
-				return; // Do nothing if clicked on current position marker, POI marker, or POI popup
-			}
-
-			const map = mapRef.current;
-			if (!map) return;
-
-			const features = map.queryRenderedFeatures(e.point, {
-				layers: ["measure-points"],
-			});
-
-			const newPoint = [e.lngLat.lng, e.lngLat.lat];
-			const markerCount = geojsonRef.current.features.filter(
-				(feature) => feature.geometry.type === "Point"
-			).length;
-
-			// Save the current state to the undo stack before making changes
-			setUndoStack((prevStack) => [...prevStack, saveState()]);
-
-			if (
-				features.length > 0 &&
-				features[0].properties.markerNumber === 1 &&
-				!isRouteClosed &&
-				markerCount >= 3 // Only allow closing the route if there are 3 or more markers
-			) {
-				// Clicking on the first marker to close the route
-				await updateRoute(newPoint, true);
-				setIsRouteClosed(true); // Close the route
-				setWasRouteJustClosed(true); // Track that the route was just closed
-
-				toast.success("Route completed!", {
-					toastId: "route-closed",
+			if (isPlacingPoi) {
+				// Store the clicked location and open the PoiForm for input
+				const clickedLocation = [e.lngLat.lng, e.lngLat.lat];
+				setNewPoiLocation(clickedLocation);
+				setEditingPoi({
+					lngLat: clickedLocation, // Pass the location to the form
+					title: "", // Placeholder, user will fill in
+					description: "", // Placeholder
 				});
-			} else if (!features.length) {
-				// Adding a new point
-				await updateRoute(newPoint, false);
-				setWasRouteJustClosed(false); // Reset closure state when adding a new point
 
-				if (!userDetails) {
-					saveRouteToCookie(); // Save route to cookie after each change
-					if (markerCount === 1) {
-						showLoginRegisterToast();
+				// Exit POI placement mode
+				setIsPlacingPoi(false);
+			} else if (isRouteEditable) {
+				// Check if the click is on the current position marker or a POI marker
+				if (
+					e.originalEvent.target.classList.contains(
+						"current-position-marker"
+					) ||
+					e.originalEvent.target.classList.contains("mmd-poi-marker") ||
+					e.originalEvent.target.closest(".mapboxgl-popup")
+				) {
+					return; // Do nothing if clicked on current position marker, POI marker, or POI popup
+				}
+
+				const map = mapRef.current;
+				if (!map) return;
+
+				const features = map.queryRenderedFeatures(e.point, {
+					layers: ["measure-points"],
+				});
+
+				const newPoint = [e.lngLat.lng, e.lngLat.lat];
+				const markerCount = geojsonRef.current.features.filter(
+					(feature) => feature.geometry.type === "Point"
+				).length;
+
+				// Save the current state to the undo stack before making changes
+				setUndoStack((prevStack) => [...prevStack, saveState()]);
+
+				if (
+					features.length > 0 &&
+					features[0].properties.markerNumber === 1 &&
+					!isRouteClosed &&
+					markerCount >= 3 // Only allow closing the route if there are 3 or more markers
+				) {
+					// Clicking on the first marker to close the route
+					await updateRoute(newPoint, true);
+					setIsRouteClosed(true); // Close the route
+					setWasRouteJustClosed(true); // Track that the route was just closed
+
+					toast.success("Route completed!", {
+						toastId: "route-closed",
+					});
+				} else if (!features.length) {
+					// Adding a new point
+					await updateRoute(newPoint, false);
+					setWasRouteJustClosed(false); // Reset closure state when adding a new point
+
+					if (!userDetails) {
+						saveRouteToCookie(); // Save route to cookie after each change
+						if (markerCount === 1) {
+							showLoginRegisterToast();
+						}
 					}
 				}
+
+				setRedoStack([]);
+
+				// Update the map
+				map.getSource("geojson").setData(geojsonRef.current);
+				setLatestLatLng(newPoint);
 			}
-
-			setRedoStack([]);
-
-			// Update the map
-			map.getSource("geojson").setData(geojsonRef.current);
-			setLatestLatLng(newPoint);
 		},
 		[
+			isPlacingPoi,
 			isRouteEditable,
 			saveState,
 			updateRoute,
@@ -919,28 +916,61 @@ const MapBox = ({ mmdObj }) => {
 	}, []);
 
 	const recalculateDistances = useCallback(() => {
-		const lineString = linestringRef.current.geometry.coordinates;
+		const lineStringCoords = linestringRef.current.geometry.coordinates;
+		const markerFeatures = geojsonRef.current.features.filter(
+			(feature) => feature.geometry.type === "Point"
+		);
 
-		if (lineString.length >= 2) {
-			const route = turf.lineString(lineString);
+		// Calculate full distance
+		if (lineStringCoords.length >= 2) {
+			const route = turf.lineString(lineStringCoords);
 			const totalDistanceKm = turf.length(route, { units: "kilometers" });
-
-			// Calculate last segment distance
-			const lastTwoPoints = lineString.slice(-2);
-			const lastSegment = turf.lineString(lastTwoPoints);
-			const lastDistanceKm = turf.length(lastSegment, { units: "kilometers" });
-
 			setRawFullDistance(totalDistanceKm);
-			setRawLastDistance(lastDistanceKm);
 
-			// Update the displayed distances
-			setFullDistance(convertDistance(totalDistanceKm, "km", units));
-			setLastDistance(convertDistance(lastDistanceKm, "km", units));
+			// Convert full distance to selected units
+			const fullDistanceConverted = convertDistance(
+				totalDistanceKm,
+				"km",
+				units
+			);
+			setFullDistance(fullDistanceConverted);
 		} else {
 			setRawFullDistance(0);
-			setRawLastDistance(0);
 			setFullDistance(0);
-			setLastDistance(0);
+		}
+
+		// Calculate last distance
+		if (markerFeatures.length >= 2) {
+			const lastMarkerIndex = markerFeatures.length - 1;
+			const secondLastMarkerIndex = lastMarkerIndex - 1;
+
+			const lastMarkerCoords =
+				markerFeatures[lastMarkerIndex].geometry.coordinates;
+			const secondLastMarkerCoords =
+				markerFeatures[secondLastMarkerIndex].geometry.coordinates;
+
+			// Find the closest points on the linestring to our markers
+			const closestPointToLast = turf.nearestPointOnLine(
+				turf.lineString(lineStringCoords),
+				turf.point(lastMarkerCoords)
+			);
+			const closestPointToSecondLast = turf.nearestPointOnLine(
+				turf.lineString(lineStringCoords),
+				turf.point(secondLastMarkerCoords)
+			);
+
+			// Calculate the distance along the linestring between these two points
+			const lastDistanceKm = Math.abs(
+				closestPointToLast.properties.location -
+					closestPointToSecondLast.properties.location
+			);
+
+			// Update rawLastDistance with the distance in kilometers
+			setRawLastDistance(lastDistanceKm);
+		} else if (markerFeatures.length === 1) {
+			setRawLastDistance(0);
+		} else {
+			setRawLastDistance(0);
 		}
 	}, [units]);
 
@@ -1053,6 +1083,13 @@ const MapBox = ({ mmdObj }) => {
 				setRedoStack((prevStack) => [...prevStack, lastMarker]);
 
 				updateRouteAfterUndo(markers);
+			}
+
+			// Remove the current position marker if it exists
+			if (currentPositionMarkerRef.current) {
+				currentPositionMarkerRef.current.remove();
+				currentPositionMarkerRef.current = null;
+				setSliderPosition(0);
 			}
 		}
 		setIsFormModified(true);
@@ -1195,6 +1232,7 @@ const MapBox = ({ mmdObj }) => {
 				bounds: mapRef.current.getBounds().toArray(),
 				allowRouteEditing: allowRouteEditing,
 				pointsOfInterest: pointsOfInterest,
+				mapStyle: currentMapStyle,
 			},
 		};
 
@@ -1435,25 +1473,36 @@ const MapBox = ({ mmdObj }) => {
 		allowRouteEditingRef.current = value;
 	}, []);
 
-	const handlePoiSave = useCallback((poi) => {
-		setPointsOfInterest((prevPois) => {
-			if (poi.id) {
-				return prevPois.map((p) =>
-					p.id === poi.id
-						? { ...poi, segmentIndex: getSegmentIndex(poi.lngLat) }
-						: p
-				);
-			} else {
-				const newPoi = {
-					...poi,
-					id: Date.now(),
-					segmentIndex: getSegmentIndex(poi.lngLat),
-				};
-				return [...prevPois, newPoi];
-			}
-		});
-		setEditingPoi(null);
-	}, []);
+	const handlePoiSave = useCallback(
+		(poi) => {
+			setPointsOfInterest((prevPois) => {
+				if (poi.id) {
+					// Update an existing POI
+					return prevPois.map((p) =>
+						p.id === poi.id
+							? { ...poi, segmentIndex: getSegmentIndex(poi.lngLat) }
+							: p
+					);
+				} else {
+					// Add a new POI
+					const newPoi = {
+						...poi,
+						lngLat: newPoiLocation, // Use the location where the user clicked on the map
+						id: Date.now(), // Unique ID
+						segmentIndex: getSegmentIndex(newPoiLocation),
+					};
+					return [...prevPois, newPoi];
+				}
+			});
+
+			// Clear the form and the new POI location
+			setEditingPoi(null);
+			setNewPoiLocation(null);
+
+			toast.success("Point of Interest added!");
+		},
+		[newPoiLocation, getSegmentIndex]
+	);
 
 	const getSegmentIndex = useCallback((poiCoords) => {
 		if (!poiCoords || !Array.isArray(poiCoords) || poiCoords.length !== 2) {
@@ -1655,9 +1704,112 @@ const MapBox = ({ mmdObj }) => {
 		setArePoisVisible((prevVisible) => !prevVisible);
 	}, []);
 
+	// const handleMapStyleChange = (newStyle) => {
+	// 	if (mapRef.current) {
+	// 		mapRef.current.once("style.load", () => {
+	// 			// Re-add the custom source and layers
+	// 			if (!mapRef.current.getSource("geojson")) {
+	// 				mapRef.current.addSource("geojson", {
+	// 					type: "geojson",
+	// 					data: geojsonRef.current,
+	// 				});
+	// 			}
+
+	// 			if (!mapRef.current.getLayer("measure-lines")) {
+	// 				mapRef.current.addLayer({
+	// 					id: "measure-lines",
+	// 					type: "line",
+	// 					source: "geojson",
+	// 					layout: {
+	// 						"line-cap": "round",
+	// 						"line-join": "round",
+	// 					},
+	// 					paint: {
+	// 						"line-color": ["coalesce", ["get", "color"], "#000000"],
+	// 						"line-width": ["coalesce", ["get", "width"], 2],
+	// 					},
+	// 					filter: ["==", "$type", "LineString"],
+	// 				});
+	// 			}
+
+	// 			if (!mapRef.current.getLayer("measure-points")) {
+	// 				mapRef.current.addLayer({
+	// 					id: "measure-points",
+	// 					type: "circle",
+	// 					source: "geojson",
+	// 					paint: {
+	// 						"circle-radius": ["coalesce", ["get", "size"], 8],
+	// 						"circle-color": [
+	// 							"case",
+	// 							[
+	// 								"all",
+	// 								["==", ["get", "markerNumber"], 1],
+	// 								["==", ["to-boolean", ["get", "isRouteClosed"]], false],
+	// 								[">=", ["coalesce", ["get", "totalMarkers"], 0], 2],
+	// 							],
+	// 							"#2e9632",
+	// 							["==", ["get", "markerNumber"], 1],
+	// 							"#000000",
+	// 							"#000000",
+	// 						],
+	// 					},
+	// 					filter: ["==", "$type", "Point"],
+	// 				});
+	// 			}
+
+	// 			if (!mapRef.current.getLayer("measure-points-number")) {
+	// 				mapRef.current.addLayer({
+	// 					id: "measure-points-number",
+	// 					type: "symbol",
+	// 					source: "geojson",
+	// 					layout: {
+	// 						"text-field": ["coalesce", ["get", "markerNumber"], ""],
+	// 						"text-font": ["Open Sans Bold"],
+	// 						"text-size": 9,
+	// 						"text-allow-overlap": true,
+	// 					},
+	// 					paint: {
+	// 						"text-color": "#ffffff",
+	// 					},
+	// 					filter: ["==", "$type", "Point"],
+	// 				});
+	// 			}
+
+	// 			// Update the data
+	// 			mapRef.current.getSource("geojson").setData(geojsonRef.current);
+
+	// 			// Re-attach event listeners
+	// 			if (isRouteEditable) {
+	// 				mapRef.current.on("click", handleMapClick);
+	// 			}
+
+	// 			mapRef.current.on("mousemove", (e) => {
+	// 				const features = mapRef.current.queryRenderedFeatures(e.point, {
+	// 					layers: ["measure-points"],
+	// 				});
+	// 				mapRef.current.getCanvas().style.cursor = features.length
+	// 					? "pointer"
+	// 					: "crosshair";
+	// 			});
+
+	// 			// Re-add POI markers
+	// 			addPOIMarkers();
+
+	// 			// Re-add current position marker if it exists
+	// 			if (currentPositionMarkerRef.current) {
+	// 				currentPositionMarkerRef.current.addTo(mapRef.current);
+	// 			}
+	// 		});
+
+	// 		mapRef.current.setStyle(newStyle);
+	// 		setCurrentMapStyle(newStyle);
+	// 	}
+	// };
+
 	return (
 		<>
 			<MapBoxControls
+				userDetails={userDetails}
 				isRouteEditable={isRouteEditable}
 				allowRouteEditing={allowRouteEditing}
 				onToggleEditable={toggleRouteEditable}
@@ -1692,12 +1844,19 @@ const MapBox = ({ mmdObj }) => {
 				arePoisVisible={arePoisVisible}
 				onPoiClick={handlePoiClick}
 				onTogglePoiVisibility={togglePoiVisibility}
+				currentMapStyle={currentMapStyle}
+				isPlacingPoi={isPlacingPoi}
+				onAddPoi={() => setIsPlacingPoi(true)}
+				// onMapStyleChange={handleMapStyleChange}
 			/>
 			{editingPoi && (
 				<PoiForm
 					poi={editingPoi}
 					onSave={handlePoiSave}
-					onCancel={() => setEditingPoi(null)}
+					onCancel={() => {
+						setEditingPoi(null);
+						setNewPoiLocation(null);
+					}}
 					isPremiumUser={isPremiumUser}
 				/>
 			)}
@@ -1726,12 +1885,12 @@ const MapBox = ({ mmdObj }) => {
 				setIsFormModified={setIsFormModified}
 			/>
 
-			{/* <ElevationProfile
+			<ElevationProfile
 				map={mapRef.current}
 				coordinates={linestringRef.current.geometry.coordinates}
 				units={units}
 				onElevationCalculated={handleElevationCalculated}
-			/> */}
+			/>
 
 			<ToastContainer
 				position="bottom-center"
@@ -1743,6 +1902,7 @@ const MapBox = ({ mmdObj }) => {
 				closeButton={true}
 				closeOnClick={false}
 			/>
+
 			{isLoading && (
 				<div className="mmd-loading-route">
 					<Loader hasBg={true} />

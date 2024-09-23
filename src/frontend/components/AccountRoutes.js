@@ -4,6 +4,7 @@ import Loader from "../../Loader";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import EditRoutePopup from "./EditRoutePopup";
+import parse from "html-react-parser";
 
 const AccountRoutes = ({ mmdObj }) => {
 	const apiUrl = mmdObj.apiUrl;
@@ -34,23 +35,35 @@ const AccountRoutes = ({ mmdObj }) => {
 						},
 					}
 				);
-				if (!response.ok) {
-					throw new Error("Failed to fetch routes");
-				}
-				const data = await response.json();
+				if (response.ok) {
+					const data = await response.json();
 
-				if (data.success) {
-					console.log("data", data);
-
-					setSavedRoutes(data.routes);
-					setTotalRoutes(data.total);
-					setTotalPages(Math.ceil(data.total / routesPerPage));
+					if (data.success) {
+						setSavedRoutes(data.routes);
+						setTotalRoutes(data.total);
+						setTotalPages(Math.ceil(data.total / routesPerPage));
+					} else {
+						toast.error("Failed to fetch routes");
+						// throw new Error(data.message || "Failed to fetch routes");
+					}
 				} else {
-					throw new Error(data.message || "Failed to fetch routes");
+					toast.error("Failed to fetch routes");
+					// throw new Error("Failed to fetch routes");
 				}
 			} catch (error) {
-				console.error("Failed to fetch routes:", error);
-				// toast.error(__("Failed to load routes. Please try again.", "mmd"));
+				toast.error(
+					<div>
+						{__("No Routes Saved, ", "mmd")}
+						<a href={mmdObj.siteUrl} className="mmd-toast-link">
+							{__("Create one now!", "mmd")}
+						</a>
+					</div>,
+					{
+						autoClose: 6000,
+						toastId: "no-routes-error",
+					}
+				);
+				// console.error("Failed to fetch routes:", error);
 			} finally {
 				setIsLoading(false);
 			}
@@ -129,7 +142,9 @@ const AccountRoutes = ({ mmdObj }) => {
 
 				if (data.success) {
 					toast.success(__("Route deleted successfully!", "mmd"));
-					setSavedRoutes(savedRoutes.filter((route) => route.id !== routeId));
+					setSavedRoutes(
+						savedRoutes.filter((route) => route.routeId !== routeId)
+					);
 				} else {
 					toast.error(__("Failed to delete route. Please try again!", "mmd"));
 				}
@@ -170,11 +185,9 @@ const AccountRoutes = ({ mmdObj }) => {
 	const handleSaveEditedRoute = async (updatedRoute) => {
 		setIsSaving(true);
 
-		console.log("Updated Route Data: ", updatedRoute);
-
 		try {
 			const response = await fetch(
-				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.id}`,
+				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.routeId}`,
 				{
 					method: "PUT",
 					headers: {
@@ -186,9 +199,10 @@ const AccountRoutes = ({ mmdObj }) => {
 						routeDescription: updatedRoute.routeDescription,
 						routeTags: updatedRoute.routeTags,
 						routeActivity: updatedRoute.routeActivity,
+						routeDistance: updatedRoute.routeDistance,
 						routeData: {
-							...routeData.routeData,
-							allowRouteEditing: formData.allowRouteEditing,
+							...updatedRoute.routeData,
+							allowRouteEditing: updatedRoute.allowRouteEditing,
 						},
 					}),
 					credentials: "include",
@@ -201,15 +215,14 @@ const AccountRoutes = ({ mmdObj }) => {
 			}
 
 			const data = await response.json();
-			console.log("Response from server:", data);
 
 			if (data.success) {
-				console.log("Edit Return: ", data);
-
 				toast.success(__("Route updated successfully!", "mmd"));
 				setSavedRoutes((prevRoutes) => {
 					const updatedRoutes = prevRoutes.map((route) =>
-						route.id === updatedRoute.id ? { ...route, ...data.route } : route
+						route.routeId === updatedRoute.routeId
+							? { ...route, ...data.route }
+							: route
 					);
 					return updatedRoutes.sort(
 						(a, b) => new Date(b.created_at) - new Date(a.created_at)
@@ -228,10 +241,9 @@ const AccountRoutes = ({ mmdObj }) => {
 	};
 
 	const stripHtmlTags = (html) => {
-		return html?.replace(/<[^>]*>/g, "");
+		const stripedHtml = html.replace(/<[^>]*>/g, "");
+		return parse(stripedHtml);
 	};
-
-	console.log("savedRoutes", savedRoutes);
 
 	return (
 		<div className="mmd-routes">
@@ -252,6 +264,8 @@ const AccountRoutes = ({ mmdObj }) => {
 								<div className="route-controls"></div>
 							</div>
 							{savedRoutes.map((route, index) => {
+								console.log("Saved Route: ", route);
+
 								const routeData = parseRouteData(route.routeData);
 								const savedUnits = routeData.units || "km";
 								const distanceInKm = parseFloat(route.routeDistance);
@@ -267,12 +281,24 @@ const AccountRoutes = ({ mmdObj }) => {
 											index % 2 === 0 ? "alt-background" : ""
 										}`}
 									>
-										{deletingRouteId === route.id && (
+										{deletingRouteId === route.routeId && (
 											<div className="route-loader">
 												<Loader width={20} height={20} />
 											</div>
 										)}
-										<h4 className="route-title">{route.routeName}</h4>
+										<h4 className="route-title">
+											{route.routeName}
+											<span
+												className={`route-assosiation fa-solid ${
+													route.collaborators > 0 ? "fa-users" : "fa-user"
+												}`}
+												title={
+													route.collaborators > 0
+														? __("Collaborated Route", "mmd")
+														: __("Private Route", "mmd")
+												}
+											></span>
+										</h4>
 										<p className="route-desc">
 											{stripHtmlTags(route.routeDescription)}
 										</p>

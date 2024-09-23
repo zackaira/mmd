@@ -4,6 +4,7 @@ const TerserPlugin = require("terser-webpack-plugin"); // JS minify
 const autoprefixer = require("autoprefixer");
 const MiniCSSExtractPlugin = require("mini-css-extract-plugin");
 const OptimizeCSSAssetsPlugin = require("css-minimizer-webpack-plugin");
+const Dotenv = require("dotenv-webpack");
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -52,6 +53,7 @@ const mmdConfig = {
 		new MiniCSSExtractPlugin({
 			filename: "[name].css",
 		}),
+		new Dotenv({ path: "./.env" }), // Use dotenv-webpack to handle environment variables
 	],
 	devtool: isProduction ? false : "cheap-module-source-map", // https://webpack.js.org/configuration/devtool/
 	module: {

@@ -56,7 +56,7 @@ const SearchPopup = ({ mapRef, mapboxClient, isOpen, onClose }) => {
 		const map = mapRef.current;
 		map.flyTo({
 			center: feature.center,
-			zoom: 14,
+			zoom: 16,
 		});
 		onClose();
 		setSuggestions([]);

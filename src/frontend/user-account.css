@@ -98,6 +98,17 @@ body.woocommerce-account
 	text-overflow: ellipsis;
 	text-transform: capitalize;
 }
+.mmd-user-routes .mmd-route h4.route-title span.route-assosiation {
+	font-size: 11px;
+	color: #b7b7b7;
+	vertical-align: middle;
+	margin: -2px 0 0 8px;
+	opacity: 0;
+	transition: opacity 0.25s ease-in-out 0s;
+}
+.mmd-user-routes .mmd-route:hover h4.route-title span.route-assosiation {
+	opacity: 1;
+}
 .mmd-user-routes .mmd-route.th,
 .mmd-user-routes .mmd-route.th h4.route-title {
 	font-weight: bold;
