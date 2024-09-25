@@ -235,7 +235,7 @@ const MapBoxControls = ({
 								: {})}
 							title={__("Share This Route", "mmd")}
 						></div>
-						<div
+						{/* <div
 							className={`fa-solid fa-plus mmd-control addpoi ${
 								isPlacingPoi ? "active" : ""
 							}`}
@@ -260,7 +260,7 @@ const MapBoxControls = ({
 										},
 								  })}
 							title={__("Add a Point of Interest", "mmd")}
-						></div>
+						></div> */}
 					</div>
 				)}
 

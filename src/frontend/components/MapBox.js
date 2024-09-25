@@ -217,8 +217,8 @@ const MapBox = ({ mmdObj }) => {
 								coordinates: linestring,
 							},
 							properties: {
-								width: 2,
-								color: [0, 0, 0, 1], // RGBA values
+								width: 4,
+								color: [0, 0, 0, 0.55], // RGBA values
 							},
 						},
 					],
@@ -232,8 +232,8 @@ const MapBox = ({ mmdObj }) => {
 						coordinates: linestring,
 					},
 					properties: {
-						width: 2,
-						color: [0, 0, 0, 1], // RGBA values
+						width: 4,
+						color: [0, 0, 0, 0.55], // RGBA values
 					},
 				};
 
@@ -473,13 +473,6 @@ const MapBox = ({ mmdObj }) => {
 			pointsOfInterest: [...pointsOfInterest],
 		};
 	}, [isRouteClosed, pointsOfInterest]);
-
-	const restoreState = useCallback((state) => {
-		geojsonRef.current = state.geojson;
-		linestringRef.current = state.linestring;
-		setIsRouteClosed(state.isRouteClosed);
-		setPointsOfInterest(state.pointsOfInterest || []);
-	}, []);
 
 	const updateDistances = useCallback((currentUnits) => {
 		const markers = geojsonRef.current.features.filter(
@@ -1179,8 +1172,8 @@ const MapBox = ({ mmdObj }) => {
 					coordinates: updatedCoords,
 				},
 				properties: {
-					width: 2,
-					color: [0, 0, 0, 1],
+					width: 4,
+					color: [0, 0, 0, 0.55],
 				},
 			};
 			geojsonRef.current.features.push(newLineString);
@@ -1442,8 +1435,8 @@ const MapBox = ({ mmdObj }) => {
 						coordinates: routeData.linestring,
 					},
 					properties: {
-						width: 2,
-						color: [0, 0, 0, 1],
+						width: 4,
+						color: [0, 0, 0, 0.55],
 					},
 				},
 			],
@@ -1456,8 +1449,8 @@ const MapBox = ({ mmdObj }) => {
 				coordinates: routeData.linestring,
 			},
 			properties: {
-				width: 2,
-				color: [0, 0, 0, 1],
+				width: 4,
+				color: [0, 0, 0, 0.55],
 			},
 		};
 
@@ -1543,25 +1536,26 @@ const MapBox = ({ mmdObj }) => {
 				const lngLat = currentPositionMarkerRef.current.getLngLat();
 				setEditingPoi({ lngLat: [lngLat.lng, lngLat.lat] });
 			} else {
-				if (userDetails) {
-					if (!isPremiumUser) {
-						toast.info(__("Points of Interest are a Premium feature", "mmd"), {
-							toastId: "premium-feature",
-						});
-					} else if (!isRouteEditable) {
-						toast.info(__("The route is not currently editable", "mmd"), {
-							toastId: "route-not-editable",
-						});
-					} else if (!allowRouteEditing) {
-						toast.info(__("Editing is not allowed for this route", "mmd"), {
-							toastId: "editing-not-allowed",
-						});
-					}
-				} else {
-					toast.info(__("Please Signup or Login to edit a route", "mmd"), {
-						toastId: "login-required",
-					});
-				}
+				// THESE ARE FOR FREMIUM USERS TO RECOMMEND PRO
+				// if (userDetails) {
+				// 	if (!isPremiumUser) {
+				// 		toast.info(__("Points of Interest are a Premium feature", "mmd"), {
+				// 			toastId: "premium-feature",
+				// 		});
+				// 	} else if (!isRouteEditable) {
+				// 		toast.info(__("The route is not currently editable", "mmd"), {
+				// 			toastId: "route-not-editable",
+				// 		});
+				// 	} else if (!allowRouteEditing) {
+				// 		toast.info(__("Editing is not allowed for this route", "mmd"), {
+				// 			toastId: "editing-not-allowed",
+				// 		});
+				// 	}
+				// } else {
+				// 	toast.info(__("Please Signup or Login to edit a route", "mmd"), {
+				// 		toastId: "login-required",
+				// 	});
+				// }
 			}
 		},
 		[isPremiumUser, isNewRoute, isRouteEditable, allowRouteEditing, userDetails]
@@ -1651,7 +1645,7 @@ const MapBox = ({ mmdObj }) => {
 			setEditingPoi(null);
 			setNewPoiLocation(null);
 
-			toast.success("Point of Interest added!");
+			// toast.success("Point of Interest added!");
 		},
 		[newPoiLocation, getSegmentIndex]
 	);
