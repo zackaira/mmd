@@ -101,6 +101,8 @@ const MapBox = ({ mmdObj }) => {
 	const [wasRouteJustClosed, setWasRouteJustClosed] = useState(false);
 	const markersRef = useRef([]);
 
+	const [showDistanceMarkers, setShowDistanceMarkers] = useState(true);
+
 	// Update refs when state changes
 	useEffect(() => {
 		isNewRouteRef.current = isNewRoute;
@@ -593,8 +595,8 @@ const MapBox = ({ mmdObj }) => {
 					"line-join": "round",
 				},
 				paint: {
-					"line-color": ["coalesce", ["get", "color"], "#000000"],
-					"line-width": ["coalesce", ["get", "width"], 2],
+					"line-color": "rgba(0, 0, 0, 0.55)",
+					"line-width": ["coalesce", ["get", "width"], 4],
 				},
 				filter: ["==", "$type", "LineString"],
 			});
@@ -604,38 +606,59 @@ const MapBox = ({ mmdObj }) => {
 				type: "circle",
 				source: "geojson",
 				paint: {
-					"circle-radius": ["coalesce", ["get", "size"], 8],
+					"circle-radius": [
+						"case",
+						["==", ["get", "markerNumber"], 1],
+						6, // First marker
+						["has", "distance"],
+						5, // Distance marker
+						5, // Other markers
+					],
 					"circle-color": [
 						"case",
-						[
-							"all",
-							["==", ["get", "markerNumber"], 1],
-							["==", ["to-boolean", ["get", "isRouteClosed"]], false],
-							[">=", ["coalesce", ["get", "totalMarkers"], 0], 2],
-						],
-						"#2e9632",
 						["==", ["get", "markerNumber"], 1],
-						"#000000",
-						"#000000",
+						"#06ae0d", // First marker: green
+						["has", "distance"],
+						"#ffffff", // Distance marker: white
+						"#737373", // Other markers: gray
+					],
+					"circle-stroke-color": [
+						"case",
+						["==", ["get", "markerNumber"], 1],
+						"#000000", // First marker: black border
+						["has", "distance"],
+						"#000000", // Distance marker: black border
+						"rgba(0, 0, 0, 0)", // Other markers: no border
+					],
+					"circle-stroke-width": [
+						"case",
+						["==", ["get", "markerNumber"], 1],
+						1, // First marker: thin border
+						["has", "distance"],
+						1, // Distance marker: thin border
+						0, // Other markers: no border
 					],
 				},
 				filter: ["==", "$type", "Point"],
 			});
 
 			map.addLayer({
-				id: "measure-points-number",
+				id: "distance-markers",
 				type: "symbol",
 				source: "geojson",
 				layout: {
-					"text-field": ["coalesce", ["get", "markerNumber"], ""],
+					"text-field": ["concat", ["get", "distance"], ["get", "units"]],
 					"text-font": ["Open Sans Bold"],
-					"text-size": 9,
-					"text-allow-overlap": true,
+					"text-size": 13,
+					"text-offset": [0, -1],
+					"text-anchor": "bottom",
 				},
 				paint: {
-					"text-color": "#ffffff",
+					"text-color": "#000000",
+					"text-halo-color": "#ffffff",
+					"text-halo-width": 2,
 				},
-				filter: ["==", "$type", "Point"],
+				filter: ["has", "distance"],
 			});
 
 			if (isRouteEditable) {
@@ -854,6 +877,110 @@ const MapBox = ({ mmdObj }) => {
 		[recalculateDistances, snapToRoutesRef]
 	);
 
+	const generateDistanceMarkers = useCallback(
+		(currentUnits = units) => {
+			if (
+				!showDistanceMarkers ||
+				!["km", "mi", "m", "ft", "yd", "nm"].includes(currentUnits)
+			) {
+				return [];
+			}
+
+			if (linestringRef.current.geometry.coordinates.length < 2) {
+				return [];
+			}
+
+			const route = turf.lineString(linestringRef.current.geometry.coordinates);
+			let turfUnits, interval;
+
+			switch (currentUnits) {
+				case "km":
+				case "mi":
+				case "nm":
+					turfUnits =
+						currentUnits === "km"
+							? "kilometers"
+							: currentUnits === "mi"
+							? "miles"
+							: "nauticalmiles";
+					interval = 1;
+					break;
+				case "m":
+				case "ft":
+				case "yd":
+					turfUnits =
+						currentUnits === "m"
+							? "meters"
+							: currentUnits === "ft"
+							? "feet"
+							: "yards";
+					interval = 100;
+					break;
+			}
+
+			const routeLength = turf.length(route, { units: turfUnits });
+
+			const markers = [];
+			for (
+				let distance = interval;
+				distance < routeLength;
+				distance += interval
+			) {
+				const point = turf.along(route, distance, { units: turfUnits });
+				markers.push({
+					type: "Feature",
+					geometry: point.geometry,
+					properties: {
+						distance: distance,
+						units: currentUnits,
+					},
+				});
+			}
+
+			return markers;
+		},
+		[showDistanceMarkers, units, linestringRef.current.geometry.coordinates]
+	);
+
+	useEffect(() => {
+		if (mapRef.current && mapRef.current.getSource("geojson")) {
+			const distanceMarkers = generateDistanceMarkers();
+
+			const updatedGeojson = {
+				type: "FeatureCollection",
+				features: [
+					...geojsonRef.current.features.filter(
+						(f) =>
+							f.geometry.type !== "Point" ||
+							!f.properties.hasOwnProperty("distance")
+					),
+					...distanceMarkers,
+				],
+			};
+
+			mapRef.current.getSource("geojson").setData(updatedGeojson);
+		}
+	}, [
+		generateDistanceMarkers,
+		showDistanceMarkers,
+		units,
+		linestringRef.current.geometry.coordinates,
+	]);
+
+	const toggleDistanceMarkers = useCallback(() => {
+		setShowDistanceMarkers((prev) => {
+			const newValue = !prev;
+			if (mapRef.current) {
+				mapRef.current.setLayoutProperty(
+					"distance-markers",
+					"visibility",
+					newValue ? "visible" : "none"
+				);
+			}
+			return newValue;
+		});
+	}, []);
+
 	useEffect(() => {
 		if (mapRef.current) {
 			if (isRouteEditable) {
@@ -899,9 +1026,32 @@ const MapBox = ({ mmdObj }) => {
 		}
 	}, [linestringRef.current.geometry.coordinates, centerOnNewMarker]);
 
-	const handleUnitChange = useCallback((newUnits) => {
-		setUnits(newUnits);
-	}, []);
+	const handleUnitChange = useCallback(
+		(newUnits) => {
+			setUnits(newUnits);
+			const newFullDistance = convertDistance(rawFullDistance, "km", newUnits);
+			const newLastDistance = convertDistance(rawLastDistance, "km", newUnits);
+			setFullDistance(newFullDistance);
+			setLastDistance(newLastDistance);
+
+			if (mapRef.current && mapRef.current.getSource("geojson")) {
+				const distanceMarkers = generateDistanceMarkers(newUnits);
+				const updatedGeojson = {
+					type: "FeatureCollection",
+					features: [
+						...geojsonRef.current.features.filter(
+							(f) =>
+								f.geometry.type !== "Point" ||
+								!f.properties.hasOwnProperty("distance")
+						),
+						...distanceMarkers,
+					],
+				};
+				mapRef.current.getSource("geojson").setData(updatedGeojson);
+			}
+		},
+		[rawFullDistance, rawLastDistance, generateDistanceMarkers]
+	);
 
 	const toggleCenterOnNewMarker = useCallback(() => {
 		setCenterOnNewMarker((prev) => !prev);
@@ -921,16 +1071,18 @@ const MapBox = ({ mmdObj }) => {
 			(feature) => feature.geometry.type === "Point"
 		);
 
+		const turfUnits = units === "km" ? "kilometers" : "miles";
+
 		// Calculate full distance
 		if (lineStringCoords.length >= 2) {
 			const route = turf.lineString(lineStringCoords);
-			const totalDistanceKm = turf.length(route, { units: "kilometers" });
+			const totalDistanceKm = turf.length(route, { units: turfUnits });
 			setRawFullDistance(totalDistanceKm);
 
 			// Convert full distance to selected units
 			const fullDistanceConverted = convertDistance(
 				totalDistanceKm,
-				"km",
+				turfUnits,
 				units
 			);
 			setFullDistance(fullDistanceConverted);
@@ -1847,6 +1999,8 @@ const MapBox = ({ mmdObj }) => {
 				currentMapStyle={currentMapStyle}
 				isPlacingPoi={isPlacingPoi}
 				onAddPoi={() => setIsPlacingPoi(true)}
+				showDistanceMarkers={showDistanceMarkers}
+				onToggleDistanceMarkers={toggleDistanceMarkers}
 				// onMapStyleChange={handleMapStyleChange}
 			/>
 			{editingPoi && (
@@ -1883,13 +2037,6 @@ const MapBox = ({ mmdObj }) => {
 				zoomToBoundingBox={zoomToBoundingBox}
 				isFormModified={isFormModified}
 				setIsFormModified={setIsFormModified}
-			/>
-
-			<ElevationProfile
-				map={mapRef.current}
-				coordinates={linestringRef.current.geometry.coordinates}
-				units={units}
-				onElevationCalculated={handleElevationCalculated}
 			/>
 
 			<ToastContainer

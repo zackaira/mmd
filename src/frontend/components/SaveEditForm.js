@@ -28,6 +28,7 @@ const SaveEditForm = ({
 	const routeNameRef = useRef(null);
 	const [trixContent, setTrixContent] = useState(routeDescription);
 	const [isDescriptionModified, setIsDescriptionModified] = useState(false);
+	const [displayedActivities, setDisplayedActivities] = useState(activities);
 
 	useEffect(() => {
 		if (routeNameRef.current) {
@@ -35,13 +36,19 @@ const SaveEditForm = ({
 		}
 	}, []);
 
-	console.log("isSaved: ", isSaved);
-	console.log("isSharedRoute: ", isSharedRoute);
-
 	useEffect(() => {
 		setTrixContent(routeDescription);
 		setIsDescriptionModified(false);
 	}, [routeDescription]);
+
+	useEffect(() => {
+		// If the routeActivity is not in the activities list, add it
+		if (routeActivity && !activities.includes(routeActivity)) {
+			setDisplayedActivities([...activities, routeActivity]);
+		} else {
+			setDisplayedActivities(activities);
+		}
+	}, [activities, routeActivity]);
 
 	const handleSubmit = (e, saveAsNew = false) => {
 		e.preventDefault();
@@ -51,9 +58,7 @@ const SaveEditForm = ({
 				? isDescriptionModified
 					? trixContent
 					: routeDescription
-				: isDescriptionModified
-				? routeDescription
-				: undefined,
+				: routeDescription,
 			routeTags,
 			routeActivity,
 			allowRouteEditing,
@@ -172,11 +177,11 @@ const SaveEditForm = ({
 						/>
 					</div>
 				</div>
-				{activities.length > 0 && (
+				{displayedActivities.length > 0 && (
 					<div className="mmd-form-row">
 						<label>{__("What is the route used for?", "mmd")}</label>
 						<div className="radio-group">
-							{activities.map((activityOption) => (
+							{displayedActivities.map((activityOption) => (
 								<label
 									htmlFor={activityOption}
 									key={activityOption}
@@ -191,6 +196,12 @@ const SaveEditForm = ({
 										onChange={handleInputChange}
 									/>
 									{activityOption.replace("_", " ")}
+									{activityOption === routeActivity &&
+										!activities.includes(activityOption) && (
+											<span className="shared-activity-note">
+												{"(" + __("Shared activity", "mmd") + ")"}
+											</span>
+										)}
 								</label>
 							))}
 						</div>
@@ -229,7 +240,7 @@ const SaveEditForm = ({
 							</button>
 							<button
 								type="button"
-								className="button alt"
+								className="button-alt"
 								onClick={(e) => handleSubmit(e, true)}
 							>
 								{__("Save as New Route", "mmd")}

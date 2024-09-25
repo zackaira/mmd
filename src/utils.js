@@ -10,6 +10,8 @@ export const conversionFactors = {
 };
 
 export const convertDistance = (distance, fromUnit, toUnit) => {
+	if (isNaN(distance)) return;
+
 	const inKm =
 		fromUnit === "km" ? distance : distance / conversionFactors[fromUnit];
 	return toUnit === "km" ? inKm : inKm * conversionFactors[toUnit];

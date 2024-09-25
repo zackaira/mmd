@@ -1,14 +1,21 @@
 /**
  * Frontend Styling
  */
-button.button.alt {
+button.button-alt {
 	background: none !important;
-	color: var(--e-global-color-primary);
-	border: 1px solid var(--e-global-color-primary);
+	color: var(--e-global-color-primary) !important;
+	border: 1px solid var(--e-global-color-primary) !important;
+	display: inline-block;
+	font-weight: 400;
+	text-align: center;
+	white-space: nowrap;
+	padding: 0.5rem 1rem;
+	font-size: 1rem;
+	transition: all 0.3s;
 }
-button.button.alt:hover {
+button.button-alt:hover {
 	background: var(--e-global-color-primary) !important;
-	color: #fff;
+	color: #fff !important;
 }
 /* -- Loader -- */
 .mmd-loader-bg {
@@ -258,6 +265,7 @@ body.woocommerce-account .mmd-popup h3 {
 }
 .radio-item {
 	display: inline-flex !important;
+	align-items: center;
 	box-shadow: 0 0 0 1px #efefef, 0 1px 8px rgb(0 0 0 / 20%);
 	border-radius: 4px;
 	background-color: #fafafa;
@@ -274,6 +282,11 @@ body.woocommerce-account .mmd-popup h3 {
 }
 .radio-item input[type="radio"] {
 	margin: 0 4px 0 0;
+}
+.shared-activity-note {
+	font-size: 0.9em;
+	color: #858585;
+	margin: 0 0 0 4px;
 }
 /* -- Toggle Switch -- */
 .toggle-switch-container {

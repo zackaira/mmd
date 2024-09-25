@@ -33,6 +33,7 @@
 		"@turf/turf": "^7.1.0",
 		"apexcharts": "^3.45.2",
 		"axios": "^1.6.6",
+		"chart.js": "^4.4.4",
 		"css-minimizer-webpack-plugin": "^4.0.0",
 		"d3": "^7.9.0",
 		"html-react-parser": "^1.4.14",

@@ -38,6 +38,8 @@ const MapBoxControls = ({
 	onTogglePoiVisibility,
 	isPlacingPoi,
 	onAddPoi,
+	showDistanceMarkers,
+	onToggleDistanceMarkers,
 	currentMapStyle,
 }) => {
 	const [isBoxHidden, setIsBoxHidden] = useState(false);
@@ -161,6 +163,11 @@ const MapBoxControls = ({
 				{isRouteEditable && (
 					<div className="mmd-controls">
 						<div
+							className="fa-solid fa-search mmd-control search"
+							onClick={onToggleSearch}
+							title={__("Search Location", "mmd")}
+						></div>
+						<div
 							className={`fa-solid fa-road mmd-control snapto ${
 								snapToRoutes ? "active" : ""
 							}`}
@@ -194,11 +201,6 @@ const MapBoxControls = ({
 							}`}
 							{...(canRedo ? { onClick: onRedo } : {})}
 							title={__("Redo", "mmd")}
-						></div>
-						<div
-							className="fa-solid fa-search mmd-control search"
-							onClick={onToggleSearch}
-							title={__("Search Location", "mmd")}
 						></div>
 						{/* <div
 							className={`fa-solid fa-mountain-sun mmd-control elevation ${
