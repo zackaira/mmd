@@ -167,13 +167,13 @@ const ElevationProfile = ({
 					<div>
 						{__("Total Elevation Loss", "mmd")}: <span>{totalLoss}m</span>
 					</div>
-					{/* {!isPremiumUser && (
+					{!isPremiumUser && (
 						<div className="mmd-elevation-note">
 							<a href="#" target="_blank">
 								{__("Get A Full Elevation Graph", "mmd")}
 							</a>
 						</div>
-					)} */}
+					)}
 					{/* <div>Debug: {debugInfo}</div> */}
 				</div>
 				{isPremiumUser && (
