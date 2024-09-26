@@ -154,15 +154,19 @@ const ElevationProfile = ({
 
 	return (
 		<>
-			<div className="mmd-popup-bg elevation" onClick={onClose}></div>
-			<div className="mmd-elevation-profile">
+			{isPremiumUser && (
+				<div className="mmd-popup-bg elevation" onClick={onClose}></div>
+			)}
+			<div
+				className={`mmd-elevation-profile ${!isPremiumUser ? "mini" : "full"}`}
+			>
 				<div className="mmd-elevation-totals">
-					<div>
+					{/* <div>
 						{__("Total Distance", "mmd")}:{" "}
 						<span>
 							{(totalDistance * distanceMultiplier).toFixed(2)} {distanceUnit}
 						</span>
-					</div>
+					</div> */}
 					<div>
 						{__("Total Elevation Gain", "mmd")}: <span>{totalGain}m</span>
 					</div>

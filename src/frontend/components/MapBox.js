@@ -691,7 +691,7 @@ const MapBox = ({ mmdObj }) => {
 
 	const handleMapClick = useCallback(
 		async (e) => {
-			setShowElevationProfile(false);
+			if (isPremiumUser) setShowElevationProfile(false);
 
 			if (isPlacingPoi) {
 				// Store the clicked location and open the PoiForm for input
