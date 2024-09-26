@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
 import { toast } from "react-toastify";
 import parse from "html-react-parser";
-// import { mapStyles } from "../../utils";
 
 const MapBoxControls = ({
 	userDetails,
@@ -40,7 +39,10 @@ const MapBoxControls = ({
 	onAddPoi,
 	showDistanceMarkers,
 	onToggleDistanceMarkers,
-	currentMapStyle,
+	showElevationProfile,
+	setShowElevationProfile,
+	// currentMapStyle,
+	// onMapStyleChange,
 }) => {
 	const [isBoxHidden, setIsBoxHidden] = useState(false);
 
@@ -202,13 +204,18 @@ const MapBoxControls = ({
 							{...(canRedo ? { onClick: onRedo } : {})}
 							title={__("Redo", "mmd")}
 						></div>
-						{/* <div
+						<div
 							className={`fa-solid fa-mountain-sun mmd-control elevation ${
-								showElevationProfile ? "active" : ""
-							}`}
-							onClick={onToggleElevationProfile}
-							title={__("Route Elevation", "mmd")}
-						></div> */}
+								canDeleteSave ? "" : "disabled"
+							} ${showElevationProfile ? "active" : ""}`}
+							{...(canDeleteSave
+								? {
+										onClick: () =>
+											setShowElevationProfile(!showElevationProfile),
+								  }
+								: {})}
+							title={__("Show Route Elevation", "mmd")}
+						></div>
 
 						<div
 							className={`fa-solid fa-trash-can mmd-control clear ${

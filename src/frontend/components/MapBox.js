@@ -19,7 +19,7 @@ import Loader from "../../Loader";
 import Cookies from "js-cookie";
 import PoiForm from "./PoiForm";
 import { debounce, convertDistance } from "../../utils";
-// import ElevationProfile from "./ElevationProfile";
+import ElevationProfile from "./ElevationProfile";
 
 mapboxgl.accessToken = process.env.MMD_MAPBOX_ACCESS_TOKEN;
 
@@ -37,11 +37,9 @@ const MapBox = ({ mmdObj }) => {
 			coordinates: [],
 		},
 	});
+
 	const [userLocation, setUserLocation] = useState(null);
 	const [mapZoom, setMapZoom] = useState(16);
-	const [currentMapStyle, setCurrentMapStyle] = useState(
-		"mapbox://styles/mapbox/streets-v12"
-	);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [isNewRoute, setIsNewRoute] = useState(true);
@@ -102,6 +100,13 @@ const MapBox = ({ mmdObj }) => {
 	const markersRef = useRef([]);
 
 	const [showDistanceMarkers, setShowDistanceMarkers] = useState(true);
+
+	const [showElevationProfile, setShowElevationProfile] = useState(false);
+
+	const toggleElevationProfile = useCallback(() => {
+		zoomToBoundingBox();
+		setShowElevationProfile((prev) => !prev);
+	}, [showElevationProfile]);
 
 	// Update refs when state changes
 	useEffect(() => {
@@ -249,9 +254,9 @@ const MapBox = ({ mmdObj }) => {
 				// Process Points of Interest
 				setPointsOfInterest(routeData.routeData.pointsOfInterest || []);
 
-				if (routeData.mapStyle) {
-					handleMapStyleChange(routeData.mapStyle);
-				}
+				// if (routeData.mapStyle) {
+				// 	handleMapStyleChange(routeData.mapStyle);
+				// }
 
 				setLoadedRouteData({
 					routeName: routeData.routeName || "",
@@ -521,10 +526,9 @@ const MapBox = ({ mmdObj }) => {
 				(position) => {
 					const { latitude, longitude } = position.coords;
 					setUserLocation([longitude, latitude]);
-					setMapZoom(16); // Zoom level for precise location
+					setMapZoom(16);
 				},
 				(error) => {
-					// console.error("Error getting user location:", error);
 					toast.error(
 						<div>
 							{__(
@@ -567,7 +571,7 @@ const MapBox = ({ mmdObj }) => {
 
 		const map = new mapboxgl.Map({
 			container: mapContainerRef.current,
-			style: currentMapStyle,
+			style: "mapbox://styles/zackaira/cm1i12utg00b901r2ezi3abfd",
 			center: userLocation,
 			zoom: mapZoom,
 		});
@@ -577,6 +581,18 @@ const MapBox = ({ mmdObj }) => {
 			map.addSource("geojson", {
 				type: "geojson",
 				data: geojsonRef.current,
+			});
+
+			// Add terrain source
+			map.addSource("mapbox-dem", {
+				type: "raster-dem",
+				url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+				tileSize: 512,
+				maxzoom: 14,
+			});
+			map.setTerrain({
+				source: "mapbox-dem",
+				exaggeration: 1.5,
 			});
 
 			map.addLayer({
@@ -675,6 +691,8 @@ const MapBox = ({ mmdObj }) => {
 
 	const handleMapClick = useCallback(
 		async (e) => {
+			setShowElevationProfile(false);
+
 			if (isPlacingPoi) {
 				// Store the clicked location and open the PoiForm for input
 				const clickedLocation = [e.lngLat.lng, e.lngLat.lat];
@@ -1377,7 +1395,7 @@ const MapBox = ({ mmdObj }) => {
 				bounds: mapRef.current.getBounds().toArray(),
 				allowRouteEditing: allowRouteEditing,
 				pointsOfInterest: pointsOfInterest,
-				mapStyle: currentMapStyle,
+				mapStyle: "mapbox://styles/zackaira/cm1i12utg00b901r2ezi3abfd",
 			},
 		};
 
@@ -1850,108 +1868,6 @@ const MapBox = ({ mmdObj }) => {
 		setArePoisVisible((prevVisible) => !prevVisible);
 	}, []);
 
-	// const handleMapStyleChange = (newStyle) => {
-	// 	if (mapRef.current) {
-	// 		mapRef.current.once("style.load", () => {
-	// 			// Re-add the custom source and layers
-	// 			if (!mapRef.current.getSource("geojson")) {
-	// 				mapRef.current.addSource("geojson", {
-	// 					type: "geojson",
-	// 					data: geojsonRef.current,
-	// 				});
-	// 			}
-
-	// 			if (!mapRef.current.getLayer("measure-lines")) {
-	// 				mapRef.current.addLayer({
-	// 					id: "measure-lines",
-	// 					type: "line",
-	// 					source: "geojson",
-	// 					layout: {
-	// 						"line-cap": "round",
-	// 						"line-join": "round",
-	// 					},
-	// 					paint: {
-	// 						"line-color": ["coalesce", ["get", "color"], "#000000"],
-	// 						"line-width": ["coalesce", ["get", "width"], 2],
-	// 					},
-	// 					filter: ["==", "$type", "LineString"],
-	// 				});
-	// 			}
-
-	// 			if (!mapRef.current.getLayer("measure-points")) {
-	// 				mapRef.current.addLayer({
-	// 					id: "measure-points",
-	// 					type: "circle",
-	// 					source: "geojson",
-	// 					paint: {
-	// 						"circle-radius": ["coalesce", ["get", "size"], 8],
-	// 						"circle-color": [
-	// 							"case",
-	// 							[
-	// 								"all",
-	// 								["==", ["get", "markerNumber"], 1],
-	// 								["==", ["to-boolean", ["get", "isRouteClosed"]], false],
-	// 								[">=", ["coalesce", ["get", "totalMarkers"], 0], 2],
-	// 							],
-	// 							"#2e9632",
-	// 							["==", ["get", "markerNumber"], 1],
-	// 							"#000000",
-	// 							"#000000",
-	// 						],
-	// 					},
-	// 					filter: ["==", "$type", "Point"],
-	// 				});
-	// 			}
-
-	// 			if (!mapRef.current.getLayer("measure-points-number")) {
-	// 				mapRef.current.addLayer({
-	// 					id: "measure-points-number",
-	// 					type: "symbol",
-	// 					source: "geojson",
-	// 					layout: {
-	// 						"text-field": ["coalesce", ["get", "markerNumber"], ""],
-	// 						"text-font": ["Open Sans Bold"],
-	// 						"text-size": 9,
-	// 						"text-allow-overlap": true,
-	// 					},
-	// 					paint: {
-	// 						"text-color": "#ffffff",
-	// 					},
-	// 					filter: ["==", "$type", "Point"],
-	// 				});
-	// 			}
-
-	// 			// Update the data
-	// 			mapRef.current.getSource("geojson").setData(geojsonRef.current);
-
-	// 			// Re-attach event listeners
-	// 			if (isRouteEditable) {
-	// 				mapRef.current.on("click", handleMapClick);
-	// 			}
-
-	// 			mapRef.current.on("mousemove", (e) => {
-	// 				const features = mapRef.current.queryRenderedFeatures(e.point, {
-	// 					layers: ["measure-points"],
-	// 				});
-	// 				mapRef.current.getCanvas().style.cursor = features.length
-	// 					? "pointer"
-	// 					: "crosshair";
-	// 			});
-
-	// 			// Re-add POI markers
-	// 			addPOIMarkers();
-
-	// 			// Re-add current position marker if it exists
-	// 			if (currentPositionMarkerRef.current) {
-	// 				currentPositionMarkerRef.current.addTo(mapRef.current);
-	// 			}
-	// 		});
-
-	// 		mapRef.current.setStyle(newStyle);
-	// 		setCurrentMapStyle(newStyle);
-	// 	}
-	// };
-
 	return (
 		<>
 			<MapBoxControls
@@ -1990,12 +1906,12 @@ const MapBox = ({ mmdObj }) => {
 				arePoisVisible={arePoisVisible}
 				onPoiClick={handlePoiClick}
 				onTogglePoiVisibility={togglePoiVisibility}
-				currentMapStyle={currentMapStyle}
 				isPlacingPoi={isPlacingPoi}
 				onAddPoi={() => setIsPlacingPoi(true)}
 				showDistanceMarkers={showDistanceMarkers}
 				onToggleDistanceMarkers={toggleDistanceMarkers}
-				// onMapStyleChange={handleMapStyleChange}
+				showElevationProfile={showElevationProfile}
+				setShowElevationProfile={toggleElevationProfile}
 			/>
 			{editingPoi && (
 				<PoiForm
@@ -2043,6 +1959,18 @@ const MapBox = ({ mmdObj }) => {
 				closeButton={true}
 				closeOnClick={false}
 			/>
+
+			{showElevationProfile &&
+				mapRef.current &&
+				linestringRef.current.geometry.coordinates.length > 0 && (
+					<ElevationProfile
+						routeCoordinates={linestringRef.current.geometry.coordinates}
+						mapRef={mapRef}
+						units={units}
+						isPremiumUser={isPremiumUser}
+						onClose={() => setShowElevationProfile(false)}
+					/>
+				)}
 
 			{isLoading && (
 				<div className="mmd-loading-route">

@@ -29,13 +29,17 @@ export function debounce(func, wait) {
 	};
 }
 
-export const mapStyles = [
-	{ name: __("Streets", "mmd"), value: "mapbox://styles/mapbox/streets-v12" },
-	{ name: __("Standard", "mmd"), value: "mapbox://styles/mapbox/standard" },
-	{ name: __("Light", "mmd"), value: "mapbox://styles/mapbox/light-v11" },
-	{ name: __("Dark", "mmd"), value: "mapbox://styles/mapbox/dark-v11" },
-	{
-		name: __("Satellite Streets", "mmd"),
-		value: "mapbox://styles/mapbox/satellite-streets-v12",
-	},
-];
+// export const mapStyles = [
+// 	{
+// 		name: __("Default", "mmd"),
+// 		value: "mapbox://styles/zackaira/cm1i12utg00b901r2ezi3abfd",
+// 	},
+// 	{ name: __("Standard", "mmd"), value: "mapbox://styles/mapbox/standard" },
+// 	{ name: __("Streets", "mmd"), value: "mapbox://styles/mapbox/streets-v12" },
+// 	{ name: __("Light", "mmd"), value: "mapbox://styles/mapbox/light-v11" },
+// 	{ name: __("Dark", "mmd"), value: "mapbox://styles/mapbox/dark-v11" },
+// 	{
+// 		name: __("Satellite Streets", "mmd"),
+// 		value: "mapbox://styles/mapbox/satellite-streets-v12",
+// 	},
+// ];

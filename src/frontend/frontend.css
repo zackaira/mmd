@@ -135,6 +135,9 @@ button.button-alt:hover {
 	bottom: 0;
 	z-index: 998;
 }
+.mmd-popup-bg.elevation {
+	background-color: rgb(0 0 0 / 4%);
+}
 .mmd-popup {
 	display: flex;
 	position: absolute;
