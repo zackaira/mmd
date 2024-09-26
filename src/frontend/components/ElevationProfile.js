@@ -161,18 +161,19 @@ const ElevationProfile = ({
 				className={`mmd-elevation-profile ${!isPremiumUser ? "mini" : "full"}`}
 			>
 				<div className="mmd-elevation-totals">
-					{/* <div>
-						{__("Total Distance", "mmd")}:{" "}
-						<span>
-							{(totalDistance * distanceMultiplier).toFixed(2)} {distanceUnit}
-						</span>
-					</div> */}
 					<div>
 						{__("Total Elevation Gain", "mmd")}: <span>{totalGain}m</span>
 					</div>
 					<div>
 						{__("Total Elevation Loss", "mmd")}: <span>{totalLoss}m</span>
 					</div>
+					{/* {!isPremiumUser && (
+						<div className="mmd-elevation-note">
+							<a href="#" target="_blank">
+								{__("Get A Full Elevation Graph", "mmd")}
+							</a>
+						</div>
+					)} */}
 					{/* <div>Debug: {debugInfo}</div> */}
 				</div>
 				{isPremiumUser && (

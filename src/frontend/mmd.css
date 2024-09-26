@@ -658,3 +658,8 @@ ul.mmd-poi-list li.mmd-poi-marker {
 .mmd-elevation-profile .mmd-elevation-chart {
 	height: 240px !important;
 }
+.mmd-elevation-note {
+	font-size: 11px;
+	text-decoration: underline;
+	text-align: center;
+}
