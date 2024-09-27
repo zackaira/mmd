@@ -14,7 +14,7 @@ const ElevationProfile = ({
 	const [totalGain, setTotalGain] = useState(0);
 	const [totalLoss, setTotalLoss] = useState(0);
 	const [totalDistance, setTotalDistance] = useState(0);
-	// const [debugInfo, setDebugInfo] = useState("");
+	const [debugInfo, setDebugInfo] = useState("");
 
 	const getElevation = useCallback(
 		async (coordinates) => {
@@ -49,46 +49,74 @@ const ElevationProfile = ({
 		[mapRef]
 	);
 
-	const calculateRollingAverage = (data, windowSize = 5) => {
-		const smoothedData = [];
-		for (let i = 0; i < data.length; i++) {
-			let sum = 0;
-			let count = 0;
-			for (
-				let j = Math.max(0, i - Math.floor(windowSize / 2));
-				j < Math.min(data.length, i + Math.floor(windowSize / 2) + 1);
-				j++
-			) {
-				sum += data[j].elevation;
-				count++;
-			}
-			smoothedData.push({
-				distance: data[i].distance,
-				elevation: sum / count,
-			});
-		}
-		return smoothedData;
-	};
+	const calculateElevationStats = useCallback((data, options = {}) => {
+		const {
+			smoothingWindow = 5, // the number of data points used in the rolling average calculation
+			minElevationChange = 1, // the minimum elevation change to be considered
+			samplingInterval = 1, // the number of data points to skip when sampling the data
+		} = options;
 
-	const calculateElevationStats = useCallback((data) => {
-		const smoothedData = calculateRollingAverage(data);
+		// console.log("Raw elevation data:", data);
+
+		// console.log("Calculation parameters:", {
+		// 	smoothingWindow,
+		// 	minElevationChange,
+		// 	samplingInterval,
+		// });
+		// console.log("Raw data length:", data.length);
+
+		// Adjust sampling rate
+		const sampledData = data.filter(
+			(_, index) => index % samplingInterval === 0
+		);
+
+		// Smoothing function
+		const smoothData = (data, window) => {
+			return data.map((d, i, arr) => {
+				const start = Math.max(0, i - Math.floor(window / 2));
+				const end = Math.min(arr.length, i + Math.floor(window / 2) + 1);
+				const windowSlice = arr.slice(start, end);
+				const sum = windowSlice.reduce((acc, cur) => acc + cur.elevation, 0);
+				return { ...d, elevation: sum / windowSlice.length };
+			});
+		};
+
+		const smoothedData = smoothData(sampledData, smoothingWindow);
+
 		let gain = 0;
 		let loss = 0;
 		let prevElevation = smoothedData[0].elevation;
 
+		const elevationChanges = [];
+
 		for (let i = 1; i < smoothedData.length; i++) {
 			const diff = smoothedData[i].elevation - prevElevation;
-			if (diff > 0) {
-				gain += diff;
-			} else {
-				loss += Math.abs(diff);
+			if (Math.abs(diff) >= minElevationChange) {
+				if (diff > 0) {
+					gain += diff;
+				} else {
+					loss += Math.abs(diff);
+				}
+				elevationChanges.push({
+					index: i,
+					change: diff,
+					cumulative: diff > 0 ? gain : -loss,
+				});
 			}
 			prevElevation = smoothedData[i].elevation;
 		}
 
+		// console.log("Elevation changes:", elevationChanges);
+
 		setTotalGain(Math.round(gain));
 		setTotalLoss(Math.round(loss));
-		return smoothedData;
+
+		return {
+			smoothedData,
+			elevationChanges,
+			gain,
+			loss,
+		};
 	}, []);
 
 	const fetchElevationData = useCallback(
@@ -115,23 +143,33 @@ const ElevationProfile = ({
 					totalElevation += elevation;
 				}
 
-				const smoothedData = calculateElevationStats(elevations);
-
 				setTimeout(() => {
+					const { smoothedData, gain, loss } = calculateElevationStats(
+						elevations,
+						{
+							smoothingWindow: 10,
+							minElevationChange: 1.5,
+							samplingInterval: 1,
+						}
+					);
 					setElevationData(smoothedData);
 					setTotalDistance(Number(length.toFixed(3)));
-				}, 200);
+					setTotalGain(Math.round(gain));
+					setTotalLoss(Math.round(loss));
 
-				// Debug information
-				// setDebugInfo(
-				// 	`Samples: ${numSamples + 1}, Avg Elevation: ${(
-				// 		totalElevation /
-				// 		(numSamples + 1)
-				// 	).toFixed(2)}m`
-				// );
+					// Debug information
+					// setDebugInfo(
+					// 	`Samples: ${numSamples + 1}, Avg Elevation: ${(
+					// 		totalElevation /
+					// 		(numSamples + 1)
+					// 	).toFixed(2)}m, Raw Gain: ${gain.toFixed(
+					// 		2
+					// 	)}m, Raw Loss: ${loss.toFixed(2)}m`
+					// );
+				}, 300);
 			} catch (error) {
 				console.error("Error fetching elevation data:", error);
-				// setDebugInfo(`Error: ${error.message}`);
+				setDebugInfo(`Error: ${error.message}`);
 			}
 		},
 		[mapRef, getElevation, calculateElevationStats]

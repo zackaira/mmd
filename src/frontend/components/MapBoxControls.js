@@ -170,6 +170,18 @@ const MapBoxControls = ({
 							title={__("Search Location", "mmd")}
 						></div>
 						<div
+							className={`fa-solid fa-mountain-sun mmd-control elevation ${
+								canDeleteSave ? "" : "disabled"
+							} ${showElevationProfile ? "active" : ""}`}
+							{...(canDeleteSave
+								? {
+										onClick: () =>
+											setShowElevationProfile(!showElevationProfile),
+								  }
+								: {})}
+							title={__("Show Route Elevation", "mmd")}
+						></div>
+						<div
 							className={`fa-solid fa-road mmd-control snapto ${
 								snapToRoutes ? "active" : ""
 							}`}
@@ -203,18 +215,6 @@ const MapBoxControls = ({
 							}`}
 							{...(canRedo ? { onClick: onRedo } : {})}
 							title={__("Redo", "mmd")}
-						></div>
-						<div
-							className={`fa-solid fa-mountain-sun mmd-control elevation ${
-								canDeleteSave ? "" : "disabled"
-							} ${showElevationProfile ? "active" : ""}`}
-							{...(canDeleteSave
-								? {
-										onClick: () =>
-											setShowElevationProfile(!showElevationProfile),
-								  }
-								: {})}
-							title={__("Show Route Elevation", "mmd")}
 						></div>
 
 						<div

@@ -102,7 +102,7 @@ class MapMyDistance {
 		$mmdOptions = $mmdSavedOptions ? json_decode($mmdSavedOptions) : '';
 		$current_url = $_SERVER['REQUEST_URI'];
 
-		$isPremium = false;
+		$isPremium = true;
 
 		// Frontend Styling
 		wp_enqueue_style('mmd-frontend-style');

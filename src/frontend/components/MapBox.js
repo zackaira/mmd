@@ -104,7 +104,7 @@ const MapBox = ({ mmdObj }) => {
 	const [showElevationProfile, setShowElevationProfile] = useState(false);
 
 	const toggleElevationProfile = useCallback(() => {
-		zoomToBoundingBox();
+		if (!showElevationProfile) zoomToBoundingBox();
 		setShowElevationProfile((prev) => !prev);
 	}, [showElevationProfile]);
 
