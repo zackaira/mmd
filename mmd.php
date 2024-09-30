@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Map My Distance
- * Version: 1.0.6
+ * Version: 1.0.7
  * Plugin URI: https://zackaira.com/wordpress-plugins/mmd/
  * Description: A Map Routes plugin for Map My distance
  * Author: Kaira
@@ -16,10 +16,10 @@
 defined( 'ABSPATH' ) || exit;
 
 if ( !defined( 'MMD_PLUGIN_VERSION' ) ) {
-	define('MMD_PLUGIN_VERSION', '1.0.6');
+	define('MMD_PLUGIN_VERSION', '1.0.7');
 }
 if ( !defined( 'MMD_PLUGIN_DB_VERSION' ) ) {
-	define('MMD_PLUGIN_DB_VERSION', '1.1');
+	define('MMD_PLUGIN_DB_VERSION', '1.2');
 }
 if ( !defined( 'MMD_PLUGIN_URL' ) ) {
 	define('MMD_PLUGIN_URL', plugin_dir_url( __FILE__ ) );

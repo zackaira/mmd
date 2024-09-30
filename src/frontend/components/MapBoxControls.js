@@ -169,7 +169,7 @@ const MapBoxControls = ({
 							onClick={onToggleSearch}
 							title={__("Search Location", "mmd")}
 						></div>
-						<div
+						{/* <div
 							className={`fa-solid fa-mountain-sun mmd-control elevation ${
 								canDeleteSave ? "" : "disabled"
 							} ${showElevationProfile ? "active" : ""}`}
@@ -180,7 +180,7 @@ const MapBoxControls = ({
 								  }
 								: {})}
 							title={__("Show Route Elevation", "mmd")}
-						></div>
+						></div> */}
 						<div
 							className={`fa-solid fa-road mmd-control snapto ${
 								snapToRoutes ? "active" : ""

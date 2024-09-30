@@ -147,7 +147,7 @@ const ElevationProfile = ({
 					const { smoothedData, gain, loss } = calculateElevationStats(
 						elevations,
 						{
-							smoothingWindow: 10,
+							smoothingWindow: 8,
 							minElevationChange: 1.5,
 							samplingInterval: 1,
 						}

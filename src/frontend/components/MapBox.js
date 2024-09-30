@@ -20,6 +20,7 @@ import Cookies from "js-cookie";
 import PoiForm from "./PoiForm";
 import { debounce, convertDistance } from "../../utils";
 import ElevationProfile from "./ElevationProfile";
+import MapExtraSettings from "./UI/MapExtraSettings";
 
 mapboxgl.accessToken = process.env.MMD_MAPBOX_ACCESS_TOKEN;
 
@@ -101,12 +102,12 @@ const MapBox = ({ mmdObj }) => {
 
 	const [showDistanceMarkers, setShowDistanceMarkers] = useState(true);
 
-	const [showElevationProfile, setShowElevationProfile] = useState(false);
+	// const [showElevationProfile, setShowElevationProfile] = useState(false);
 
-	const toggleElevationProfile = useCallback(() => {
-		if (!showElevationProfile) zoomToBoundingBox();
-		setShowElevationProfile((prev) => !prev);
-	}, [showElevationProfile]);
+	// const toggleElevationProfile = useCallback(() => {
+	// 	if (!showElevationProfile) zoomToBoundingBox();
+	// 	setShowElevationProfile((prev) => !prev);
+	// }, [showElevationProfile]);
 
 	// Update refs when state changes
 	useEffect(() => {
@@ -1908,11 +1909,15 @@ const MapBox = ({ mmdObj }) => {
 				onTogglePoiVisibility={togglePoiVisibility}
 				isPlacingPoi={isPlacingPoi}
 				onAddPoi={() => setIsPlacingPoi(true)}
+				// showElevationProfile={showElevationProfile}
+				// setShowElevationProfile={toggleElevationProfile}
+			/>
+
+			{/* <MapExtraSettings
 				showDistanceMarkers={showDistanceMarkers}
 				onToggleDistanceMarkers={toggleDistanceMarkers}
-				showElevationProfile={showElevationProfile}
-				setShowElevationProfile={toggleElevationProfile}
-			/>
+			/> */}
+
 			{editingPoi && (
 				<PoiForm
 					poi={editingPoi}
@@ -1960,7 +1965,7 @@ const MapBox = ({ mmdObj }) => {
 				closeOnClick={false}
 			/>
 
-			{showElevationProfile &&
+			{/* {showElevationProfile &&
 				mapRef.current &&
 				linestringRef.current.geometry.coordinates.length > 0 && (
 					<ElevationProfile
@@ -1970,7 +1975,7 @@ const MapBox = ({ mmdObj }) => {
 						isPremiumUser={isPremiumUser}
 						onClose={() => setShowElevationProfile(false)}
 					/>
-				)}
+				)} */}
 
 			{isLoading && (
 				<div className="mmd-loading-route">
