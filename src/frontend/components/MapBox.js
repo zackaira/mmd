@@ -19,7 +19,7 @@ import Loader from "../../Loader";
 import Cookies from "js-cookie";
 import PoiForm from "./PoiForm";
 import { debounce, convertDistance } from "../../utils";
-import ElevationProfile from "./ElevationProfile";
+// import ElevationProfile from "./ElevationProfile";
 import MapExtraSettings from "./UI/MapExtraSettings";
 
 mapboxgl.accessToken = process.env.MMD_MAPBOX_ACCESS_TOKEN;
@@ -154,6 +154,8 @@ const MapBox = ({ mmdObj }) => {
 					window.history.replaceState({}, "", routeData.url);
 				}
 
+				// console.log('routeData', routeData);
+
 				// Update loadedRouteData with the full route information
 				setLoadedRouteData({
 					routeName: routeData.routeName,
@@ -161,7 +163,7 @@ const MapBox = ({ mmdObj }) => {
 					routeTags: routeData.routeTags,
 					routeActivity: routeData.routeActivity,
 					routeId: routeData.routeId,
-					isRouteOwner: routeData.isRouteOwner,
+					isRouteOwner: routeData.routeId ? routeData.isRouteOwner : true,
 					routeDistance: routeData.routeDistance,
 					routeData: routeData.routeData,
 				});
@@ -190,7 +192,7 @@ const MapBox = ({ mmdObj }) => {
 			routeLoadingRef.current = true;
 			setIsRouteEditableAndRef(false);
 			setIsLoading(true);
-
+		
 			const processRouteData = (routeData) => {
 				// Ensure coordinates and linestring are arrays, even if empty
 				const coordinates = Array.isArray(routeData.routeData.coordinates)
@@ -277,22 +279,20 @@ const MapBox = ({ mmdObj }) => {
 				// Update the map when it's available
 				if (mapRef.current && mapRef.current.getSource("geojson")) {
 					mapRef.current.getSource("geojson").setData(geojsonRef.current);
-
-					// Use setTimeout to ensure the map has updated before zooming
+			
+					// Use setTimeout to ensure the map has updated before zooming and recalculating
 					setTimeout(() => {
-						zoomToBoundingBox();
+					  zoomToBoundingBox();
+					  recalculateDistances(); // Add this line to recalculate distances after loading
 					}, 100);
-
+			
 					// Update click handlers
 					if (isFromCookie) {
-						mapRef.current.on("click", handleMapClick);
+					  mapRef.current.on("click", handleMapClick);
 					} else {
-						mapRef.current.off("click", handleMapClick);
+					  mapRef.current.off("click", handleMapClick);
 					}
 				}
-
-				// Recalculate distances
-				recalculateDistances();
 
 				toast.success(
 					isFromCookie
@@ -352,6 +352,7 @@ const MapBox = ({ mmdObj }) => {
 			mmdObj.apiUrl,
 			mmdObj.nonce,
 			setLoadedRouteData,
+			zoomToBoundingBox,
 		]
 	);
 
@@ -584,17 +585,17 @@ const MapBox = ({ mmdObj }) => {
 				data: geojsonRef.current,
 			});
 
-			// Add terrain source
-			map.addSource("mapbox-dem", {
-				type: "raster-dem",
-				url: "mapbox://mapbox.mapbox-terrain-dem-v1",
-				tileSize: 512,
-				maxzoom: 14,
-			});
-			map.setTerrain({
-				source: "mapbox-dem",
-				exaggeration: 1.5,
-			});
+			// Add terrain source for ELEVATION
+			// map.addSource("mapbox-dem", {
+			// 	type: "raster-dem",
+			// 	url: "mapbox://mapbox.mapbox-terrain-dem-v1",
+			// 	tileSize: 512,
+			// 	maxzoom: 14,
+			// });
+			// map.setTerrain({
+			// 	source: "mapbox-dem",
+			// 	exaggeration: 1.5,
+			// });
 
 			map.addLayer({
 				id: "measure-lines",
@@ -1018,8 +1019,17 @@ const MapBox = ({ mmdObj }) => {
 	}, [units, updateDistances]);
 
 	useEffect(() => {
-		setFullDistance(convertDistance(rawFullDistance, "km", units));
-		setLastDistance(convertDistance(rawLastDistance, "km", units));
+		if (!isNaN(rawFullDistance) && rawFullDistance > 0) {
+		  setFullDistance(convertDistance(rawFullDistance, "km", units));
+		} else {
+		  setFullDistance(0);
+		}
+		
+		if (!isNaN(rawLastDistance) && rawLastDistance > 0) {
+		  setLastDistance(convertDistance(rawLastDistance, "km", units));
+		} else {
+		  setLastDistance(0);
+		}
 	}, [rawFullDistance, rawLastDistance, units]);
 
 	useEffect(() => {
@@ -1080,63 +1090,81 @@ const MapBox = ({ mmdObj }) => {
 	const recalculateDistances = useCallback(() => {
 		const lineStringCoords = linestringRef.current.geometry.coordinates;
 		const markerFeatures = geojsonRef.current.features.filter(
-			(feature) => feature.geometry.type === "Point"
+		  (feature) => feature.geometry.type === "Point"
 		);
-
+	  
 		const turfUnits = units === "km" ? "kilometers" : "miles";
-
+	  
 		// Calculate full distance
 		if (lineStringCoords.length >= 2) {
+		  try {
 			const route = turf.lineString(lineStringCoords);
 			const totalDistanceKm = turf.length(route, { units: turfUnits });
-			setRawFullDistance(totalDistanceKm);
-
-			// Convert full distance to selected units
-			const fullDistanceConverted = convertDistance(
+			
+			if (!isNaN(totalDistanceKm)) {
+			  setRawFullDistance(totalDistanceKm);
+	  
+			  // Convert full distance to selected units
+			  const fullDistanceConverted = convertDistance(
 				totalDistanceKm,
 				turfUnits,
 				units
-			);
-			setFullDistance(fullDistanceConverted);
-		} else {
+			  );
+			  setFullDistance(fullDistanceConverted);
+			} else {
+			  console.error("Invalid total distance calculated");
+			  setRawFullDistance(0);
+			  setFullDistance(0);
+			}
+		  } catch (error) {
+			console.error("Error calculating full distance:", error);
 			setRawFullDistance(0);
 			setFullDistance(0);
+		  }
+		} else {
+		  setRawFullDistance(0);
+		  setFullDistance(0);
 		}
-
+	  
 		// Calculate last distance
 		if (markerFeatures.length >= 2) {
+		  try {
 			const lastMarkerIndex = markerFeatures.length - 1;
 			const secondLastMarkerIndex = lastMarkerIndex - 1;
-
+	  
 			const lastMarkerCoords =
-				markerFeatures[lastMarkerIndex].geometry.coordinates;
+			  markerFeatures[lastMarkerIndex].geometry.coordinates;
 			const secondLastMarkerCoords =
-				markerFeatures[secondLastMarkerIndex].geometry.coordinates;
-
-			// Find the closest points on the linestring to our markers
+			  markerFeatures[secondLastMarkerIndex].geometry.coordinates;
+	  
 			const closestPointToLast = turf.nearestPointOnLine(
-				turf.lineString(lineStringCoords),
-				turf.point(lastMarkerCoords)
+			  turf.lineString(lineStringCoords),
+			  turf.point(lastMarkerCoords)
 			);
 			const closestPointToSecondLast = turf.nearestPointOnLine(
-				turf.lineString(lineStringCoords),
-				turf.point(secondLastMarkerCoords)
+			  turf.lineString(lineStringCoords),
+			  turf.point(secondLastMarkerCoords)
 			);
-
-			// Calculate the distance along the linestring between these two points
+	  
 			const lastDistanceKm = Math.abs(
-				closestPointToLast.properties.location -
-					closestPointToSecondLast.properties.location
+			  closestPointToLast.properties.location -
+				closestPointToSecondLast.properties.location
 			);
-
-			// Update rawLastDistance with the distance in kilometers
-			setRawLastDistance(lastDistanceKm);
-		} else if (markerFeatures.length === 1) {
+	  
+			if (!isNaN(lastDistanceKm)) {
+			  setRawLastDistance(lastDistanceKm);
+			} else {
+			  console.error("Invalid last segment distance calculated");
+			  setRawLastDistance(0);
+			}
+		  } catch (error) {
+			console.error("Error calculating last segment distance:", error);
 			setRawLastDistance(0);
+		  }
 		} else {
-			setRawLastDistance(0);
+		  setRawLastDistance(0);
 		}
-	}, [units]);
+	}, [units, setRawFullDistance, setFullDistance, setRawLastDistance]);
 
 	const updateRouteAfterUndo = useCallback(
 		async (newMarkers) => {
@@ -1913,10 +1941,11 @@ const MapBox = ({ mmdObj }) => {
 				// setShowElevationProfile={toggleElevationProfile}
 			/>
 
-			{/* <MapExtraSettings
+			<MapExtraSettings
+				mmdObj={mmdObj}
 				showDistanceMarkers={showDistanceMarkers}
 				onToggleDistanceMarkers={toggleDistanceMarkers}
-			/> */}
+			/>
 
 			{editingPoi && (
 				<PoiForm

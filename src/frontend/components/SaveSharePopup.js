@@ -59,9 +59,7 @@ const SaveSharePopup = ({
 				setIsEditable(false);
 				setAllowRouteEditing(routeData.routeData?.allowRouteEditing || false);
 				setExistingRouteId(routeData.routeId || null);
-				setIsSharedRoute(
-					routeData.isRouteOwner && routeData.isRouteOwner === false
-				);
+				setIsSharedRoute(!routeData.isRouteOwner);
 				setIsRouteOwner(routeData?.isRouteOwner || false);
 				setIsEditing(!!routeData.routeId);
 				setRouteUrl(
@@ -123,11 +121,11 @@ const SaveSharePopup = ({
 			routeDistance: routeDistance,
 			routeData: {
 				...routeData.routeData,
-				allowRouteEditing: formData.allowRouteEditing,
+				allowRouteEditing: saveAsNew ? false : formData.allowRouteEditing,
 			},
 		};
 
-		console.log("submittedRouteData", submittedRouteData);
+		// console.log("submittedRouteData", submittedRouteData);
 
 		try {
 			const response = await fetch(endpoint, {

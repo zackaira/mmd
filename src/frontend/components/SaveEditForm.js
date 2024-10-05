@@ -100,6 +100,8 @@ const SaveEditForm = ({
 		setIsFormModified(true);
 	};
 
+	console.log('isSharedRoute: ', isSharedRoute);
+
 	return (
 		<div className="content save">
 			<h3>

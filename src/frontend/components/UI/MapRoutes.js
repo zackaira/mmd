@@ -1,24 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
-import Loader from "../../Loader";
-import { ToastContainer, toast } from "react-toastify";
+import Loader from "../../../Loader";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import EditRoutePopup from "./EditRoutePopup";
-import parse from "html-react-parser";
 
-const AccountRoutes = ({ mmdObj }) => {
-	const apiUrl = mmdObj.apiUrl;
-	const userDetails = mmdObj.userDetails;
+const MapRoutes = ({ mmdObj }) => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [deletingRouteId, setDeletingRouteId] = useState(null);
 	const [savedRoutes, setSavedRoutes] = useState([]);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [totalRoutes, setTotalRoutes] = useState(0);
 	const [totalPages, setTotalPages] = useState(0);
-	const routesPerPage = 20;
-	const [editingRoute, setEditingRoute] = useState(null);
-	const [isSaving, setIsSaving] = useState(false);
-	const [isFormModified, setIsFormModified] = useState(false);
+	const routesPerPage = 8;
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -26,7 +19,7 @@ const AccountRoutes = ({ mmdObj }) => {
 
 			try {
 				const response = await fetch(
-					`${apiUrl}mmd-api/v1/get-user-routes/${userDetails.user_id}?page=${currentPage}&per_page=${routesPerPage}`,
+					`${mmdObj.apiUrl}mmd-api/v1/get-user-routes/${mmdObj.userDetails.user_id}?page=${currentPage}&per_page=${routesPerPage}`,
 					{
 						method: "GET",
 						headers: {
@@ -108,18 +101,8 @@ const AccountRoutes = ({ mmdObj }) => {
 		return data || {};
 	};
 
-	const handleCopyRouteUrl = (routeId) => {
-		const routeUrl = `${mmdObj.siteUrl}?route=${routeId}`;
-		navigator.clipboard.writeText(routeUrl).then(
-			() => {
-				toast.success(__("Route URL copied to clipboard!", "mmd"));
-			},
-			(err) => {
-				toast.error(
-					__("Could not copy for some reason, Please try again!", "mmd")
-				);
-			}
-		);
+	const handleLoadRoute = (routeId) => {
+		console.log('Loading Route... ', routeId);
 	};
 
 	const handleDeleteRoute = async (routeId) => {
@@ -129,7 +112,7 @@ const AccountRoutes = ({ mmdObj }) => {
 			setDeletingRouteId(routeId);
 			try {
 				const response = await fetch(
-					`${apiUrl}mmd-api/v1/delete-route/${routeId}`,
+					`${mmdObj.apiUrl}mmd-api/v1/delete-route/${routeId}`,
 					{
 						method: "DELETE",
 						headers: {
@@ -170,99 +153,16 @@ const AccountRoutes = ({ mmdObj }) => {
 		}
 	};
 
-	const handleEditRoute = (route) => {
-		const routeData =
-			typeof route.routeData === "string"
-				? JSON.parse(route.routeData)
-				: route.routeData;
-
-		setEditingRoute({
-			...route,
-			allowRouteEditing: routeData.allowRouteEditing || false,
-		});
-	};
-
-	const handleSaveEditedRoute = async (updatedRoute) => {
-		setIsSaving(true);
-
-		try {
-			const response = await fetch(
-				`${apiUrl}mmd-api/v1/update-route/${updatedRoute.routeId}`,
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-						"X-WP-Nonce": mmdObj.nonce,
-					},
-					body: JSON.stringify({
-						routeName: updatedRoute.routeName,
-						routeDescription: updatedRoute.routeDescription,
-						routeTags: updatedRoute.routeTags,
-						routeActivity: updatedRoute.routeActivity,
-						routeDistance: updatedRoute.routeDistance,
-						routeData: {
-							...updatedRoute.routeData,
-							allowRouteEditing: updatedRoute.allowRouteEditing,
-						},
-					}),
-					credentials: "include",
-				}
-			);
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "HTTP error " + response.status);
-			}
-
-			const data = await response.json();
-
-			if (data.success) {
-				toast.success(__("Route updated successfully!", "mmd"));
-				setSavedRoutes((prevRoutes) => {
-					const updatedRoutes = prevRoutes.map((route) =>
-						route.routeId === updatedRoute.routeId
-							? { ...route, ...data.route }
-							: route
-					);
-					return updatedRoutes.sort(
-						(a, b) => new Date(b.created_at) - new Date(a.created_at)
-					);
-				});
-				setEditingRoute(null);
-			} else {
-				throw new Error(data.message || "Failed to update route");
-			}
-		} catch (error) {
-			console.error("Error updating route:", error);
-			toast.error(__("Failed to update route: ", "mmd") + error.message);
-		} finally {
-			setIsSaving(false);
-		}
-	};
-
-	const stripHtmlTags = (html) => {
-		const stripedHtml = html.replace(/<[^>]*>/g, "");
-		return parse(stripedHtml);
-	};
-
 	return (
 		<div className="mmd-routes">
-			<h3>{__("Saved Routes", "mmd")}</h3>
 			{isLoading ? (
 				<div className="mmd-load-route">
-					<Loader />
+					<Loader width={30} height={30} />
 				</div>
 			) : (
 				<>
 					{savedRoutes && savedRoutes.length > 0 ? (
 						<div className="mmd-user-routes">
-							<div className="mmd-route th">
-								<h4 className="route-title">{__("Route Name", "mmd")}</h4>
-								<p className="route-desc">{__("Description", "mmd")}</p>
-								<div className="route-distance">{__("Distance", "mmd")}</div>
-								<div className="route-date">{__("Created On", "mmd")}</div>
-								<div className="route-controls"></div>
-							</div>
 							{savedRoutes.map((route, index) => {
 								const routeData = parseRouteData(route.routeData);
 								const savedUnits = routeData.units || "km";
@@ -281,7 +181,7 @@ const AccountRoutes = ({ mmdObj }) => {
 									>
 										{deletingRouteId === route.routeId && (
 											<div className="route-loader">
-												<Loader width={20} height={20} />
+												<Loader width={14} height={14} />
 											</div>
 										)}
 										<h4 className="route-title">
@@ -297,30 +197,14 @@ const AccountRoutes = ({ mmdObj }) => {
 												}
 											></span>
 										</h4>
-										<p className="route-desc">
-											{stripHtmlTags(route.routeDescription)}
-										</p>
 										<div className="route-distance">
 											{convertedDistance.toFixed(2)} {getUnitName(savedUnits)}
 										</div>
-										<div className="route-date">
-											{new Date(route.created_at).toLocaleDateString()}
-										</div>
 										<div className="route-controls">
 											<span
-												className="fa-solid fa-copy mmd-route-icon copy"
-												onClick={() => handleCopyRouteUrl(route.routeId)}
-												title={__("Copy Route URL", "mmd")}
-											></span>
-											<span
-												className="fa-solid fa-edit mmd-route-icon edit"
-												onClick={() => handleEditRoute(route)}
-												title={__("Edit This Route", "mmd")}
-											></span>
-											<span
-												className="fa-solid fa-trash-can mmd-route-icon delete"
-												onClick={() => handleDeleteRoute(route.routeId)}
-												title={__("Delete This Route", "mmd")}
+												className="fa-solid fa-eye mmd-route-icon copy"
+												onClick={() => handleLoadRoute(route.routeId)}
+												title={__("View Route", "mmd")}
 											></span>
 										</div>
 									</div>
@@ -360,31 +244,8 @@ const AccountRoutes = ({ mmdObj }) => {
 					</button>
 				</div>
 			)}
-
-			<EditRoutePopup
-				isPremiumUser={mmdObj.isPremium}
-				isOpen={!!editingRoute}
-				onClose={() => setEditingRoute(null)}
-				route={editingRoute || {}}
-				onSave={handleSaveEditedRoute}
-				mmdObj={mmdObj}
-				isSaving={isSaving}
-				isFormModified={isFormModified}
-				setIsFormModified={setIsFormModified}
-			/>
-
-			<ToastContainer
-				position="bottom-center"
-				autoClose={4000}
-				icon={false}
-				theme="dark"
-				hideProgressBar={true}
-				toastClassName="mmd-toast"
-				closeButton={true}
-				closeOnClick={false}
-			/>
 		</div>
 	);
 };
 
-export default AccountRoutes;
+export default MapRoutes;
