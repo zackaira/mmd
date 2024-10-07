@@ -57,7 +57,7 @@ const SaveSharePopup = ({
 				setIsEditable(false);
 				setAllowRouteEditing(routeData.routeData?.allowRouteEditing || false);
 				setExistingRouteId(routeData.routeId || null);
-				setIsRouteOwner(routeData?.isRouteOwner || false);
+				setIsRouteOwner(routeData.routeId ? routeData.isRouteOwner ? routeData.isRouteOwner : false : true);
 				setIsEditing(!!routeData.routeId);
 				setRouteUrl(
 					routeData.routeId
@@ -117,6 +117,7 @@ const SaveSharePopup = ({
 			routeTags: formData.routeTags,
 			routeActivity: formData.routeActivity,
 			routeDistance: routeDistance,
+			isRouteOwner: isRouteOwner,
 			routeData: {
 				...routeData.routeData,
 				allowRouteEditing: saveAsNew ? false : formData.allowRouteEditing,

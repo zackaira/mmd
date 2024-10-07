@@ -525,6 +525,9 @@ const MapBox = ({ mmdObj }) => {
 					...(loadedRouteData?.isRouteOwner && {
 						isRouteOwner: loadedRouteData.isRouteOwner,
 					}),
+					...(loadedRouteData?.allowRouteEditing && {
+						allowRouteEditing: loadedRouteData.allowRouteEditing,
+					}),
 				}),
 			};
 
@@ -1430,7 +1433,7 @@ const MapBox = ({ mmdObj }) => {
 
 			setIsNewRouteAndRef(true);
 			setIsRouteEditableAndRef(true);
-			setAllowRouteEditingAndRef(true);
+			setAllowRouteEditingAndRef(false);
 			setPointsOfInterest([]);
 
 			// Clear undo/redo history

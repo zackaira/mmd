@@ -90,7 +90,7 @@ body.woocommerce-account
 .mmd-user-routes .mmd-route h4.route-title {
 	flex: 1;
 	font-size: 16px;
-	max-width: 158px;
+	/* max-width: 158px; */
 	margin: 0;
 	padding: 0 10px;
 	white-space: nowrap;
@@ -119,6 +119,7 @@ body.woocommerce-account
 	flex: 1;
 	margin: 0;
 	padding: 0 10px 0 0;
+	max-width: 210px;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;

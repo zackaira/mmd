@@ -2,7 +2,13 @@ import React, { useState, useRef, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
 import MapRoutes from "./MapRoutes";
 
-const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers, handleLoadRoute, routeDataOnMap }) => {
+const MapExtraSettings = ({
+		mmdObj,
+		showDistanceMarkers,
+		onToggleDistanceMarkers,
+		handleLoadRoute,
+		routeDataOnMap,
+	}) => {
     const [panelVisible, setPanelVisible] = useState(false);
     const [showRoutes, setShowRoutes] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -27,6 +33,8 @@ const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers
 
     const closePanel = () => {
         setPanelVisible(false);
+		setShowRoutes(false);
+        setShowControls(false);
     };
 
     return (
@@ -72,13 +80,11 @@ const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers
 					{showRoutes && (
 						<div className={`mmd-map-routes`}>
 							{mmdObj.userDetails?.user_id ? (
-								<div>
-									<MapRoutes
-										mmdObj={mmdObj}
-										handleLoadRoute={handleLoadRoute}
-										routeDataOnMap={routeDataOnMap}
-									/>
-								</div>
+								<MapRoutes
+									mmdObj={mmdObj}
+									handleLoadRoute={handleLoadRoute}
+									routeDataOnMap={routeDataOnMap}
+								/>
 							) : (
 								<div className="mmd-map-routes-login">
 									<p>

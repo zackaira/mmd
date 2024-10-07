@@ -119,6 +119,7 @@ class MapMyDistance {
 				'activities' => get_user_meta( $user_id, 'activities', true ),
 				'units'      => get_user_meta( $user_id, 'units', true ),
 				'isPremium'  => $isPremium,
+				'event_organizer'  => (bool) get_user_meta($user_id, 'event_organizer', true),
 			);
 		} else {
 			$user_details = false;
@@ -335,44 +336,34 @@ class MapMyDistance {
 	}
 
 	/**
-	 * Installation. Runs on activation.
-	 */
-	public function install() {
-		$this->_update_default_settings();
-		$this->_log_version_number();
-
-		$this->mmd_create_custom_table();
-		$this->mmd_create_user_route_associations_table();
-
-		// Add this line to set the initial database version
-		update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
-	}
-
-	/**
 	 * Create custom database table for tracking visits.
 	 */
 	private function mmd_create_custom_table() {
-		global $wpdb;
-		$table_name = $wpdb->prefix . 'mmd_map_routes';
-	
-		$charset_collate = $wpdb->get_charset_collate();
-	
-		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
-			id CHAR(32) NOT NULL,
-			route_name VARCHAR(255) NOT NULL,
-			route_description TEXT,
-			route_tags TEXT,
-			route_activity VARCHAR(100),
-			route_data LONGTEXT NOT NULL,
-			created_at DATETIME NOT NULL,
-			route_distance FLOAT NOT NULL,
-			PRIMARY KEY (id),
-			INDEX idx_created_at (created_at)
-		) $charset_collate;";
-	
-		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-		dbDelta($sql);
-	}
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mmd_map_routes';
+    
+        $charset_collate = $wpdb->get_charset_collate();
+    
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id CHAR(32) NOT NULL,
+            route_name VARCHAR(255) NOT NULL,
+            route_description TEXT,
+            route_tags TEXT,
+            route_activity VARCHAR(100),
+            route_data LONGTEXT NOT NULL,
+            created_at DATETIME NOT NULL,
+            route_distance FLOAT NOT NULL,
+            is_public BOOLEAN DEFAULT FALSE,
+            event_type_id INT UNSIGNED,
+            PRIMARY KEY (id),
+            INDEX idx_created_at (created_at),
+            INDEX idx_is_public (is_public),
+            INDEX idx_event_type (event_type_id)
+        ) $charset_collate;";
+    
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
 
 	/**
 	 * Create custom database table for user route associations.
@@ -399,25 +390,80 @@ class MapMyDistance {
 		dbDelta($sql);
 	}
 
+	public function mmd_create_event_types_table() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mmd_event_types';
+    
+        $charset_collate = $wpdb->get_charset_collate();
+    
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_name (name)
+        ) $charset_collate;";
+    
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+
+	public function mmd_create_public_route_applications_table() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'mmd_public_route_applications';
+    
+        $charset_collate = $wpdb->get_charset_collate();
+    
+        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            route_id CHAR(32) NOT NULL,
+            user_id BIGINT UNSIGNED NOT NULL,
+            event_type_id INT UNSIGNED NOT NULL,
+            status ENUM('pending', 'approved', 'denied') DEFAULT 'pending',
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            processed_at TIMESTAMP NULL,
+            admin_notes TEXT,
+            FOREIGN KEY (route_id) REFERENCES {$wpdb->prefix}mmd_map_routes(id) ON DELETE CASCADE,
+            FOREIGN KEY (user_id) REFERENCES {$wpdb->users}(ID) ON DELETE CASCADE,
+            FOREIGN KEY (event_type_id) REFERENCES {$wpdb->prefix}mmd_event_types(id) ON DELETE CASCADE,
+            INDEX (route_id),
+            INDEX (user_id),
+            INDEX (event_type_id),
+            INDEX (status)
+        ) $charset_collate;";
+    
+        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+        dbDelta($sql);
+    }
+
 	public function mmd_update_database() {
-		$current_db_version = get_option('mmd_db_version', '1.0');
+        $current_db_version = get_option('mmd_db_version', '1.0');
 
-		if (version_compare($current_db_version, MMD_PLUGIN_DB_VERSION, '<')) {
-			// Perform database updates
-			if (version_compare($current_db_version, '1.1', '<')) {
-				$this->mmd_create_user_route_associations_table();
-			}
+        if (version_compare($current_db_version, MMD_PLUGIN_DB_VERSION, '<')) {
+            if (version_compare($current_db_version, '1.1', '<')) {
+                $this->mmd_create_user_route_associations_table();
+            }
+            if (version_compare($current_db_version, '1.2', '<')) {
+                $this->mmd_create_event_types_table();
+                $this->mmd_create_public_route_applications_table();
+            }
 
-			// Add more version checks and update functions as needed
-			// For example:
-			// if (version_compare($current_db_version, '1.2', '<')) {
-			//     $this->some_future_update_function();
-			// }
+            update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
+        }
+    }
 
-			// Update the database version option
-			update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
-		}
-	}
+    public function install() {
+        $this->_update_default_settings();
+        $this->_log_version_number();
+
+        $this->mmd_create_custom_table();
+        $this->mmd_create_user_route_associations_table();
+        $this->mmd_create_event_types_table();
+        $this->mmd_create_public_route_applications_table();
+
+        update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);
+    }
 
 	/**
 	 * Save Initial Default Settings.

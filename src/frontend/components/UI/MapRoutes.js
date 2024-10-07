@@ -79,47 +79,47 @@ const MapRoutes = ({ mmdObj, handleLoadRoute, routeDataOnMap }) => {
 		);
 	};
 
-	const handleDeleteRoute = async (routeId) => {
-		if (
-			window.confirm(__("Are you sure you want to delete this route?", "mmd"))
-		) {
-			setDeletingRouteId(routeId);
-			try {
-				const response = await fetch(
-					`${mmdObj.apiUrl}mmd-api/v1/delete-route/${routeId}`,
-					{
-						method: "DELETE",
-						headers: {
-							"Content-Type": "application/json",
-							"X-WP-Nonce": mmdObj.nonce,
-						},
-					}
-				);
-				const data = await response.json();
+	// const handleDeleteRoute = async (routeId) => {
+	// 	if (
+	// 		window.confirm(__("Are you sure you want to delete this route?", "mmd"))
+	// 	) {
+	// 		setDeletingRouteId(routeId);
+	// 		try {
+	// 			const response = await fetch(
+	// 				`${mmdObj.apiUrl}mmd-api/v1/delete-route/${routeId}`,
+	// 				{
+	// 					method: "DELETE",
+	// 					headers: {
+	// 						"Content-Type": "application/json",
+	// 						"X-WP-Nonce": mmdObj.nonce,
+	// 					},
+	// 				}
+	// 			);
+	// 			const data = await response.json();
 
-				if (data.success) {
-					toast.success(__("Route deleted successfully!", "mmd"));
-					setSavedRoutes(
-						savedRoutes.filter((route) => route.routeId !== routeId)
-					);
-				} else {
-					toast.error(__("Failed to delete route. Please try again!", "mmd"));
-				}
-			} catch (error) {
-				toast.error(
-					__(
-						"An error occurred while deleting the route. Please try again!",
-						"mmd"
-					)
-				);
-				console.error("Failed to delete route:", error);
-			} finally {
-				setTimeout(() => {
-					setDeletingRouteId(null);
-				}, 400);
-			}
-		}
-	};
+	// 			if (data.success) {
+	// 				toast.success(__("Route deleted successfully!", "mmd"));
+	// 				setSavedRoutes(
+	// 					savedRoutes.filter((route) => route.routeId !== routeId)
+	// 				);
+	// 			} else {
+	// 				toast.error(__("Failed to delete route. Please try again!", "mmd"));
+	// 			}
+	// 		} catch (error) {
+	// 			toast.error(
+	// 				__(
+	// 					"An error occurred while deleting the route. Please try again!",
+	// 					"mmd"
+	// 				)
+	// 			);
+	// 			console.error("Failed to delete route:", error);
+	// 		} finally {
+	// 			setTimeout(() => {
+	// 				setDeletingRouteId(null);
+	// 			}, 400);
+	// 		}
+	// 	}
+	// };
 
 	const handlePageChange = (newPage) => {
 		if (newPage > 0 && newPage <= totalPages) {
@@ -167,14 +167,14 @@ const MapRoutes = ({ mmdObj, handleLoadRoute, routeDataOnMap }) => {
 										key={route.routeId}
 										className={`mmd-route ${
 											index % 2 === 0 ? "alt-background" : ""
-										} ${routeDataOnMap?.routeId === route.routeId ? "selected" : ""}`}
+										} ${routeDataOnMap?.routeId === route?.routeId ? "selected" : ""}`}
 									>
 										{deletingRouteId === route.routeId && (
 											<div className="route-loader">
 												<Loader width={14} height={14} />
 											</div>
 										)}
-										<h4 className="route-title" onClick={() => handleChangeRoute(route)}>
+										<h4 className="route-title" title={route.routeName} onClick={() => handleChangeRoute(route)}>
 											{route.routeName}
 											<span
 												className={`route-assosiation fa-solid ${
@@ -201,11 +201,11 @@ const MapRoutes = ({ mmdObj, handleLoadRoute, routeDataOnMap }) => {
 												onClick={() => handleChangeRoute(route)}
 												title={__("Load Route", "mmd")}
 											></span>
-											<span
+											{/* <span
 												className="fa-solid fa-trash-can mmd-route-icon delete"
 												onClick={() => handleDeleteRoute(route.routeId)}
 												title={__("Delete This Route", "mmd")}
-											></span>
+											></span> */}
 										</div>
 									</div>
 								);
@@ -213,10 +213,7 @@ const MapRoutes = ({ mmdObj, handleLoadRoute, routeDataOnMap }) => {
 						</div>
 					) : (
 						<p className="mmd-no-routes">
-							{__("No routes found.", "mmd")}{" "}
-							<a href={mmdObj.siteUrl}>
-								{__("Create your first route", "mmd")}
-							</a>
+							{__("You haven't saved any routes yet.", "mmd")}{" "}
 						</p>
 					)}
 				</>

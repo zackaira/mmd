@@ -246,6 +246,8 @@ class MapMyDistance_Rest_Routes {
 			$route_tags = isset($params['routeTags']) ? (is_array($params['routeTags']) ? implode(',', array_map('sanitize_text_field', $params['routeTags'])) : sanitize_text_field($params['routeTags'])) : '';
 			$route_activity = sanitize_text_field($params['routeActivity']);
 			$distance = isset($params['routeDistance']) ? floatval($params['routeDistance']) : 0;
+			$wants_public = isset($params['wantsPublic']) ? (bool)$params['wantsPublic'] : false;
+			$event_type_id = isset($params['eventTypeId']) ? intval($params['eventTypeId']) : null;
 		
 			// Prepare route data
 			$route_data = [
@@ -273,8 +275,10 @@ class MapMyDistance_Rest_Routes {
 					'route_data' => $route_data_json,
 					'created_at' => current_time('mysql'),
 					'route_distance' => $distance,
+					'is_public' => false,  // Always set to false initially
+					'event_type_id' => null,  // Always set to null initially
 				],
-				['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f']
+				['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%d']
 			);
 		
 			if ($result === false) {
@@ -296,10 +300,15 @@ class MapMyDistance_Rest_Routes {
 				return new WP_Error('association_save_failed', 'Failed to save the route association', ['status' => 500]);
 			}
 		
+			// If the user wants the route to be public, create a public route application
+			if ($wants_public) {
+				$this->create_public_route_application($hash_id, $user_id, $event_type_id);
+			}
+		
 			// Prepare the response data
 			$response_data = [
 				'success' => true,
-				'message' => 'Route saved successfully',
+				'message' => 'Route saved successfully' . ($wants_public ? '. Public status pending approval.' : ''),
 				'route' => [
 					'routeId' => $hash_id,
 					'routeName' => $route_name,
@@ -308,6 +317,9 @@ class MapMyDistance_Rest_Routes {
 					'routeActivity' => $route_activity,
 					'routeDistance' => $distance,
 					'isRouteOwner' => true,
+					'isPublic' => false,
+					'wantsPublic' => $wants_public,
+					'eventTypeId' => null,
 					'routeData' => $route_data,
 				]
 			];
@@ -366,28 +378,37 @@ class MapMyDistance_Rest_Routes {
 			);
 		}
 	
+		// Prepare route data
+		$route_data = [
+			'coordinates' => $params['routeData']['coordinates'] ?? [],
+			'linestring' => $params['routeData']['linestring'] ?? [],
+			'bounds' => $params['routeData']['bounds'] ?? null,
+			'allowRouteEditing' => isset($params['routeData']['allowRouteEditing']) ? (bool)$params['routeData']['allowRouteEditing'] : false,
+			'pointsOfInterest' => isset($params['routeData']['pointsOfInterest']) ? $this->mmd_sanitize_points_of_interest($params['routeData']['pointsOfInterest']) : [],
+			'units' => $params['routeData']['units'] ?? 'km',
+		];
+	
+		$updated_data = [
+			'route_name' => sanitize_text_field($params['routeName']),
+			'route_description' => wp_kses_post($params['routeDescription']),
+			'route_tags' => is_array($params['routeTags']) 
+				? implode(',', array_map('sanitize_text_field', $params['routeTags'])) 
+				: sanitize_text_field($params['routeTags']),
+			'route_activity' => sanitize_text_field($params['routeActivity']),
+			'route_distance' => isset($params['routeDistance']) ? floatval($params['routeDistance']) : 0,
+			'route_data' => json_encode($route_data),
+		];
+	
+		$wants_public = isset($params['wantsPublic']) ? (bool)$params['wantsPublic'] : false;
+		$event_type_id = isset($params['eventTypeId']) ? intval($params['eventTypeId']) : null;
+	
 		// If saving as new, generate a new unique ID for the route
 		if ($save_as_new) {
 			$new_route_id = $this->generate_unique_hash_id($current_user_id, $params['routeName']);
-			$updated_data = [
-				'id' => $new_route_id,
-				'route_name' => sanitize_text_field($params['routeName']),
-				'route_description' => wp_kses_post($params['routeDescription']),
-				'route_tags' => is_array($params['routeTags']) 
-					? implode(',', array_map('sanitize_text_field', $params['routeTags'])) 
-					: sanitize_text_field($params['routeTags']),
-				'route_activity' => sanitize_text_field($params['routeActivity']),
-				'route_distance' => isset($params['routeDistance']) ? floatval($params['routeDistance']) : 0,
-				'route_data' => json_encode([
-					'coordinates' => $params['routeData']['coordinates'] ?? [],
-					'linestring' => $params['routeData']['linestring'] ?? [],
-					'bounds' => $params['routeData']['bounds'] ?? null,
-					'allowRouteEditing' => isset($params['routeData']['allowRouteEditing']) ? (bool)$params['routeData']['allowRouteEditing'] : false,
-					'pointsOfInterest' => isset($params['routeData']['pointsOfInterest']) ? $this->mmd_sanitize_points_of_interest($params['routeData']['pointsOfInterest']) : [],
-					'units' => $params['routeData']['units'] ?? 'km',
-				]),
-				'created_at' => current_time('mysql'),
-			];
+			$updated_data['id'] = $new_route_id;
+			$updated_data['created_at'] = current_time('mysql');
+			$updated_data['is_public'] = false;
+			$updated_data['event_type_id'] = null;
 	
 			// Insert the new route
 			$wpdb->insert($table_name, $updated_data);
@@ -406,31 +427,18 @@ class MapMyDistance_Rest_Routes {
 			$route_id = $new_route_id; // Use new route ID for response
 		} else {
 			// Otherwise, update the existing route
-			$updated_data = [
-				'route_name' => sanitize_text_field($params['routeName']),
-				'route_description' => wp_kses_post($params['routeDescription']),
-				'route_tags' => is_array($params['routeTags']) 
-					? implode(',', array_map('sanitize_text_field', $params['routeTags'])) 
-					: sanitize_text_field($params['routeTags']),
-				'route_activity' => sanitize_text_field($params['routeActivity']),
-				'route_distance' => isset($params['routeDistance']) ? floatval($params['routeDistance']) : 0,
-				'route_data' => json_encode([
-					'coordinates' => $params['routeData']['coordinates'] ?? [],
-					'linestring' => $params['routeData']['linestring'] ?? [],
-					'bounds' => $params['routeData']['bounds'] ?? null,
-					'allowRouteEditing' => isset($params['routeData']['allowRouteEditing']) ? (bool)$params['routeData']['allowRouteEditing'] : false,
-					'pointsOfInterest' => isset($params['routeData']['pointsOfInterest']) ? $this->mmd_sanitize_points_of_interest($params['routeData']['pointsOfInterest']) : [],
-					'units' => $params['routeData']['units'] ?? 'km',
-				]),
-			];
-	
 			$wpdb->update($table_name, $updated_data, array('id' => $route_id));
+		}
+	
+		// If the user wants the route to be public, create or update a public route application
+		if ($wants_public) {
+			$this->create_or_update_public_route_application($route_id, $current_user_id, $event_type_id);
 		}
 	
 		// Prepare the response data
 		$response = [
 			'success' => true,
-			'message' => $save_as_new ? 'New route created successfully' : 'Route updated successfully',
+			'message' => $save_as_new ? 'New route created successfully' : 'Route updated successfully' . ($wants_public ? '. Public status pending approval.' : ''),
 			'route' => [
 				'routeId' => $route_id,
 				'routeName' => $updated_data['route_name'],
@@ -439,13 +447,57 @@ class MapMyDistance_Rest_Routes {
 				'routeActivity' => $updated_data['route_activity'],
 				'routeDistance' => $updated_data['route_distance'],
 				'isRouteOwner' => ($user_association && $user_association->association_type === 'owner'),
-				'routeData' => json_decode($updated_data['route_data'], true),
+				'isPublic' => false,
+				'wantsPublic' => $wants_public,
+				'eventTypeId' => null,
+				'routeData' => $route_data,
 			]
 		];
 	
 		return new WP_REST_Response($response, 200);
 	}
 	
+	private function create_or_update_public_route_application($route_id, $user_id, $event_type_id) {
+		global $wpdb;
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
+	
+		// Check if an application already exists
+		$existing_application = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $applications_table WHERE route_id = %s AND user_id = %d",
+			$route_id,
+			$user_id
+		));
+	
+		if ($existing_application) {
+			// Update existing application
+			$wpdb->update(
+				$applications_table,
+				[
+					'event_type_id' => $event_type_id,
+					'status' => 'pending',
+					'applied_at' => current_time('mysql'),
+					'processed_at' => null,
+					'admin_notes' => null,
+				],
+				['id' => $existing_application->id],
+				['%d', '%s', '%s', '%s', '%s'],
+				['%d']
+			);
+		} else {
+			// Create new application
+			$wpdb->insert(
+				$applications_table,
+				[
+					'route_id' => $route_id,
+					'user_id' => $user_id,
+					'event_type_id' => $event_type_id,
+					'status' => 'pending',
+					'applied_at' => current_time('mysql'),
+				],
+				['%s', '%d', '%d', '%s', '%s']
+			);
+		}
+	}
 	
 	/*
 	 * Generate a unique hash ID for the route
@@ -616,88 +668,178 @@ class MapMyDistance_Rest_Routes {
 		$current_user_id = get_current_user_id();
 		$table_name = $wpdb->prefix . 'mmd_map_routes';
 		$association_table = $wpdb->prefix . 'mmd_user_route_associations';
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
 	
-		// Check the user's association with the route
-		$user_association = $wpdb->get_row($wpdb->prepare(
-			"SELECT * FROM $association_table WHERE user_id = %d AND route_id = %s",
-			$current_user_id,
-			$route_id
-		));
+		// Start transaction
+		$wpdb->query('START TRANSACTION');
 	
-		if (!$user_association) {
-			return new WP_Error('not_associated', 'You are not associated with this route', ['status' => 403]);
-		}
-	
-		// Count the number of users associated with this route
-		$associated_users_count = $wpdb->get_var($wpdb->prepare(
-			"SELECT COUNT(*) FROM $association_table WHERE route_id = %s",
-			$route_id
-		));
-	
-		// If this is the only user associated with the route, delete the route and its association
-		if ($associated_users_count == 1) {
-			$wpdb->delete($table_name, ['route_id' => $route_id], ['%s']);
-			$wpdb->delete($association_table, ['route_id' => $route_id], ['%s']);
-	
-			return rest_ensure_response([
-				'success' => true, 
-				'message' => 'Route deleted successfully as you were the last associated user'
-			]);
-		} 
-		// If the user is the owner and there are other collaborators
-		elseif ($user_association->association_type === 'owner') {
-			// Update all collaborators to owners
-			$wpdb->update(
-				$association_table,
-				['association_type' => 'owner'],
-				['route_id' => $route_id, 'association_type' => 'collaborator'],
-				['%s'],
-				['%s', '%s']
-			);
-	
-			// Remove the current owner's association
-			$wpdb->delete($association_table, [
-				'user_id' => $current_user_id,
-				'route_id' => $route_id
-			], ['%d', '%s']);
-	
-			// Update the route to allow editing by default
-			$route_data = $wpdb->get_var($wpdb->prepare(
-				"SELECT route_data FROM $table_name WHERE id = %s",
+		try {
+			// Check if the route exists
+			$route_exists = $wpdb->get_var($wpdb->prepare(
+				"SELECT COUNT(*) FROM $table_name WHERE id = %s",
 				$route_id
 			));
-			$route_data_array = json_decode($route_data, true);
-			$route_data_array['allowRouteEditing'] = true;
-			$wpdb->update(
-				$table_name,
-				['route_data' => json_encode($route_data_array)],
-				['route_id' => $route_id],
-				['%s'],
-				['%s']
-			);
 	
-			return rest_ensure_response([
-				'success' => true, 
-				'message' => 'You have been dissociated from the route. All collaborators have been promoted to owners.'
-			]);
-		}
-		// If the user is a collaborator, just remove their association
-		else {
-			$wpdb->delete($association_table, [
-				'user_id' => $current_user_id,
-				'route_id' => $route_id
-			], ['%d', '%s']);
+			if (!$route_exists) {
+				throw new Exception('Route does not exist');
+			}
 	
-			return rest_ensure_response([
-				'success' => true, 
-				'message' => 'You have been successfully dissociated from the route'
-			]);
+			// Check the user's association with the route
+			$user_association = $wpdb->get_row($wpdb->prepare(
+				"SELECT * FROM $association_table WHERE user_id = %d AND route_id = %s",
+				$current_user_id,
+				$route_id
+			));
+	
+			if (!$user_association) {
+				throw new Exception('You are not associated with this route');
+			}
+	
+			// Count the number of users associated with this route
+			$associated_users_count = $wpdb->get_var($wpdb->prepare(
+				"SELECT COUNT(*) FROM $association_table WHERE route_id = %s",
+				$route_id
+			));
+	
+			// If this is the only user associated with the route, delete the route and its associations
+			if ($associated_users_count == 1) {
+				// Delete from applications table first
+				$deleted_applications = $wpdb->delete($applications_table, ['route_id' => $route_id], ['%s']);
+				if ($deleted_applications === false) {
+					error_log("Failed to delete route applications. Error: " . $wpdb->last_error);
+					throw new Exception('Failed to delete route applications');
+				}
+	
+				// Delete from associations table
+				$deleted_association = $wpdb->delete($association_table, ['route_id' => $route_id], ['%s']);
+				if ($deleted_association === false) {
+					error_log("Failed to delete route association. Error: " . $wpdb->last_error);
+					throw new Exception('Failed to delete route association');
+				}
+	
+				// Finally, delete the route itself
+				$deleted_route = $wpdb->delete($table_name, ['id' => $route_id], ['%s']);
+				if ($deleted_route === false) {
+					$wpdb_last_error = $wpdb->last_error;
+					error_log("Failed to delete route from map_routes table. Error: " . $wpdb_last_error);
+					throw new Exception('Failed to delete route from map_routes table. Error: ' . $wpdb_last_error);
+				}
+	
+				$wpdb->query('COMMIT');
+				return rest_ensure_response([
+					'success' => true, 
+					'message' => 'Route deleted successfully as you were the last associated user'
+				]);
+			} 
+			// If the user is the owner and there are other collaborators
+			elseif ($user_association->association_type === 'owner') {
+				// Update all collaborators to owners
+				$updated = $wpdb->update(
+					$association_table,
+					['association_type' => 'owner'],
+					['route_id' => $route_id, 'association_type' => 'collaborator'],
+					['%s'],
+					['%s', '%s']
+				);
+	
+				if ($updated === false) {
+					throw new Exception('Failed to update collaborators');
+				}
+	
+				// Remove the current owner's association
+				$deleted = $wpdb->delete($association_table, [
+					'user_id' => $current_user_id,
+					'route_id' => $route_id
+				], ['%d', '%s']);
+	
+				if ($deleted === false) {
+					throw new Exception('Failed to remove owner association');
+				}
+	
+				$wpdb->query('COMMIT');
+				return rest_ensure_response([
+					'success' => true, 
+					'message' => 'You have been dissociated from the route. All collaborators have been promoted to owners.'
+				]);
+			}
+			// If the user is a collaborator, just remove their association
+			else {
+				$deleted = $wpdb->delete($association_table, [
+					'user_id' => $current_user_id,
+					'route_id' => $route_id
+				], ['%d', '%s']);
+	
+				if ($deleted === false) {
+					throw new Exception('Failed to remove collaborator association');
+				}
+	
+				$wpdb->query('COMMIT');
+				return rest_ensure_response([
+					'success' => true, 
+					'message' => 'You have been successfully dissociated from the route'
+				]);
+			}
+		} catch (Exception $e) {
+			$wpdb->query('ROLLBACK');
+			error_log("Delete route error: " . $e->getMessage());
+			return new WP_Error('delete_failed', $e->getMessage(), ['status' => 400]);
 		}
 	}
 
 	/*
-	 * Get User Stats for Admin
+	 * Admin Functions
 	 */
+	public function mmd_admin_approve_public_route($request) {
+		if (!current_user_can('manage_options')) {
+			return new WP_Error('forbidden', 'You do not have permission to approve routes', ['status' => 403]);
+		}
+	
+		global $wpdb;
+		$application_id = $request['id'];
+		$approval_status = $request['status']; // 'approved' or 'denied'
+		$admin_notes = $request['admin_notes'] ?? '';
+	
+		$application_table = $wpdb->prefix . 'mmd_public_route_applications';
+		$routes_table = $wpdb->prefix . 'mmd_map_routes';
+	
+		// Get the application details
+		$application = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $application_table WHERE id = %d",
+			$application_id
+		));
+	
+		if (!$application) {
+			return new WP_Error('not_found', 'Application not found', ['status' => 404]);
+		}
+	
+		// Update the application status
+		$wpdb->update(
+			$application_table,
+			[
+				'status' => $approval_status,
+				'processed_at' => current_time('mysql'),
+				'admin_notes' => $admin_notes
+			],
+			['id' => $application_id]
+		);
+	
+		// If approved, update the route
+		if ($approval_status === 'approved') {
+			$wpdb->update(
+				$routes_table,
+				[
+					'is_public' => true,
+					'event_type_id' => $application->event_type_id
+				],
+				['id' => $application->route_id]
+			);
+		}
+	
+		return new WP_REST_Response([
+			'success' => true,
+			'message' => 'Application ' . $approval_status
+		], 200);
+	}
 
 	/*
 	 * Get Users & their routes count
