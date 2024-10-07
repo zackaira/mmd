@@ -100,16 +100,11 @@ const SaveEditForm = ({
 		setIsFormModified(true);
 	};
 
-	console.log('isSharedRoute: ', isSharedRoute);
-
 	return (
 		<div className="content save">
 			<h3>
-				{isSharedRoute && !isEditing
-					? __("Save Shared Route:", "mmd")
-					: isEditing
-					? __("Edit Your Route:", "mmd")
-					: __("Save Your Route:", "mmd")}
+				{// isSharedRoute && !isEditing ? __("Save Shared Route:", "mmd") : isEditing ? __("Edit Your Route:", "mmd") : __("Save Your Route:", "mmd")
+				isEditing ? __("Edit Your Route:", "mmd") : __("Save Your Route:", "mmd")}
 			</h3>
 			<p>
 				{__(
@@ -231,7 +226,7 @@ const SaveEditForm = ({
 				)}
 
 				<div className="mmd-button-group">
-					{isSaved || isSharedRoute ? (
+					{isSaved ? (
 						<>
 							<button
 								type="submit"

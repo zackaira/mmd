@@ -37,7 +37,7 @@ const SaveSharePopup = ({
 
 	const activities = userDetails?.activities || [];
 
-	const [isSharedRoute, setIsSharedRoute] = useState(false);
+	// const [isSharedRoute, setIsSharedRoute] = useState(false);
 	const [isRouteOwner, setIsRouteOwner] = useState(false);
 
 	// console.log("routeData: ", routeData);
@@ -59,14 +59,14 @@ const SaveSharePopup = ({
 				setIsEditable(false);
 				setAllowRouteEditing(routeData.routeData?.allowRouteEditing || false);
 				setExistingRouteId(routeData.routeId || null);
-				setIsSharedRoute(!routeData.isRouteOwner);
 				setIsRouteOwner(routeData?.isRouteOwner || false);
 				setIsEditing(!!routeData.routeId);
 				setRouteUrl(
 					routeData.routeId
-						? `${mmdObj.siteUrl}/?route=${routeData.routeId}`
-						: ""
+					? `${mmdObj.siteUrl}/?route=${routeData.routeId}`
+					: ""
 				);
+				// setIsSharedRoute();
 			} else {
 				// Reset form for new route
 				setRouteName("");
@@ -78,13 +78,18 @@ const SaveSharePopup = ({
 				setExistingRouteId(null);
 				setIsRouteOwner(true);
 				setIsEditing(false);
-				setIsSharedRoute(false);
 				setRouteUrl("");
+				// setIsSharedRoute(false);
 			}
 		}
 	}, [isOpen, routeData, userDetails, setAllowRouteEditing, mmdObj.siteUrl]);
 
 	if (!isOpen) return null;
+
+	console.log('routeData', routeData);
+	// console.log('isSharedRoute', isSharedRoute);
+	console.log('isRouteOwner', isRouteOwner);
+	console.log('isSaved', isSaved);
 
 	const handleTabClick = (tab) => {
 		setActiveTab(tab);
@@ -164,10 +169,7 @@ const SaveSharePopup = ({
 				scrollableRef.current.scrollTop = 0;
 			}
 
-			const successMessage =
-				isSharedRoute && !isEditable
-					? __("Shared route saved as a new route!", "mmd")
-					: isEditing
+			const successMessage = isEditing
 					? __("Route updated successfully!", "mmd")
 					: __("Route saved successfully!", "mmd");
 
@@ -239,12 +241,12 @@ const SaveSharePopup = ({
 										onSubmit={saveRoute}
 										allowRouteEditing={allowRouteEditing}
 										setAllowRouteEditing={setAllowRouteEditing}
-										isSharedRoute={isSharedRoute}
 										isEditing={isEditing}
 										isRouteOwner={isRouteOwner}
 										isSaved={isSaved}
 										isFormModified={isFormModified}
 										setIsFormModified={setIsFormModified}
+										// isSharedRoute={isSharedRoute}
 									/>
 								)}
 								{activeTab === "share" && (

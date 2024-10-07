@@ -4,6 +4,16 @@
 #mmd-root .mapboxgl-ctrl-attrib-inner {
 	display: none !important;
 }
+.current-location-marker {
+	background-color: #2800ff;
+	box-shadow: 0 1px 8px rgb(0 0 0 / 22%);
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	border: 2px solid #FFF;
+	cursor: pointer;
+	z-index: 20;
+}
 /* -- MMD Box -- */
 .mmd-boxwrap {
 	position: absolute;

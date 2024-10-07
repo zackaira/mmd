@@ -39,6 +39,7 @@ const MapBox = ({ mmdObj }) => {
 		},
 	});
 
+	const currentLocationMarkerRef = useRef(null);
 	const [userLocation, setUserLocation] = useState(null);
 	const [mapZoom, setMapZoom] = useState(16);
 
@@ -109,6 +110,78 @@ const MapBox = ({ mmdObj }) => {
 	// 	setShowElevationProfile((prev) => !prev);
 	// }, [showElevationProfile]);
 
+	const addCurrentLocationMarker = useCallback((location) => {
+		if (mapRef.current && mapRef.current.loaded()) {
+		  if (currentLocationMarkerRef.current) {
+			currentLocationMarkerRef.current.remove();
+		  }
+	  
+		  const el = document.createElement('div');
+		  el.className = 'current-location-marker';
+	  
+		  currentLocationMarkerRef.current = new mapboxgl.Marker(el)
+			.setLngLat(location)
+			.addTo(mapRef.current);
+		}
+	  }, []);
+	  
+	  useEffect(() => {
+		if (mapRef.current && mapRef.current.loaded() && userLocation) {
+		  addCurrentLocationMarker(userLocation);
+		}
+	  }, [mapRef.current, userLocation, addCurrentLocationMarker]);
+	  
+	  const handleUpdateCurrentLocation = useCallback(() => {
+		if ("geolocation" in navigator) {
+		  navigator.geolocation.getCurrentPosition(
+			(position) => {
+			  const { latitude, longitude } = position.coords;
+			  const newLocation = [longitude, latitude];
+	  
+			  // Check if map exists and is loaded
+			  if (mapRef.current && mapRef.current.loaded()) {
+				// Fly to the new location
+				mapRef.current.flyTo({
+				  center: newLocation,
+				  // zoom: 15,
+				  duration: 2000
+				});
+	  
+				// Update the current location marker
+				if (currentLocationMarkerRef.current) {
+				  currentLocationMarkerRef.current.setLngLat(newLocation);
+				} else {
+				  const el = document.createElement('div');
+				  el.className = 'current-location-marker';
+				  currentLocationMarkerRef.current = new mapboxgl.Marker(el)
+					.setLngLat(newLocation)
+					.addTo(mapRef.current);
+				}
+	  
+				// Update the user location state
+				setUserLocation(newLocation);
+	  
+				// toast.success(__("Location updated successfully", "mmd"));
+			  } else {
+				console.warn("Map is not initialized or not loaded");
+				toast.warn(__("Map is still loading. Please try again in a moment.", "mmd"));
+			  }
+			},
+			(error) => {
+			  console.error("Error getting current location:", error);
+			  toast.error(__("Failed to get current location. Please try again.", "mmd"));
+			},
+			{
+			  enableHighAccuracy: true,
+			  timeout: 5000,
+			  maximumAge: 0
+			}
+		  );
+		} else {
+		  toast.error(__("Geolocation is not supported in your browser", "mmd"));
+		}
+	  }, [mapRef, setUserLocation]);
+
 	// Update refs when state changes
 	useEffect(() => {
 		isNewRouteRef.current = isNewRoute;
@@ -153,8 +226,6 @@ const MapBox = ({ mmdObj }) => {
 				if (routeData.url && routeData.url !== window.location.href) {
 					window.history.replaceState({}, "", routeData.url);
 				}
-
-				// console.log('routeData', routeData);
 
 				// Update loadedRouteData with the full route information
 				setLoadedRouteData({
@@ -305,7 +376,10 @@ const MapBox = ({ mmdObj }) => {
 				setIsLoading(false);
 			};
 
-			if (typeof routeIdOrData === "string" && !isFromCookie) {
+			if (routeIdOrData && typeof routeIdOrData === 'object' && routeIdOrData.routeId) {
+				// This is a saved route from the MapRoutes component
+				processRouteData(routeIdOrData);
+			} else if (typeof routeIdOrData === "string" && !isFromCookie) {
 				fetch(`${mmdObj.apiUrl}mmd-api/v1/get-route/${routeIdOrData}`, {
 					headers: { "X-WP-Nonce": mmdObj.nonce },
 				})
@@ -529,6 +603,7 @@ const MapBox = ({ mmdObj }) => {
 					const { latitude, longitude } = position.coords;
 					setUserLocation([longitude, latitude]);
 					setMapZoom(16);
+					addCurrentLocationMarker([longitude, latitude]);
 				},
 				(error) => {
 					toast.error(
@@ -581,10 +656,17 @@ const MapBox = ({ mmdObj }) => {
 
 		map.on("load", () => {
 			map.addSource("geojson", {
-				type: "geojson",
-				data: geojsonRef.current,
+			type: "geojson",
+			data: geojsonRef.current,
 			});
 
+			// Add initial current location marker
+			const el = document.createElement('div');
+			el.className = 'current-location-marker';
+			currentLocationMarkerRef.current = new mapboxgl.Marker(el)
+			.setLngLat(userLocation)
+			.addTo(map);
+			
 			// Add terrain source for ELEVATION
 			// map.addSource("mapbox-dem", {
 			// 	type: "raster-dem",
@@ -688,7 +770,9 @@ const MapBox = ({ mmdObj }) => {
 			setMapInitialized(true);
 		});
 
-		return () => map.remove();
+		map.on("error", (e) => {
+			console.error("Mapbox GL error:", e);
+		});
 	}, [userLocation]);
 
 	const handleMapClick = useCallback(
@@ -1373,6 +1457,8 @@ const MapBox = ({ mmdObj }) => {
 
 			// Clear route info
 			setLoadedRouteData(null);
+			setUndoStack([]); 
+			setRedoStack([]);
 
 			// Reset slider position
 			setSliderPosition(0);
@@ -1901,6 +1987,7 @@ const MapBox = ({ mmdObj }) => {
 		<>
 			<MapBoxControls
 				userDetails={userDetails}
+				updateCurrentLocation={handleUpdateCurrentLocation}
 				isRouteEditable={isRouteEditable}
 				allowRouteEditing={allowRouteEditing}
 				onToggleEditable={toggleRouteEditable}
@@ -1945,6 +2032,7 @@ const MapBox = ({ mmdObj }) => {
 				mmdObj={mmdObj}
 				showDistanceMarkers={showDistanceMarkers}
 				onToggleDistanceMarkers={toggleDistanceMarkers}
+				handleLoadRoute={loadSavedRoute}
 			/>
 
 			{editingPoi && (

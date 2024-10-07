@@ -5,6 +5,7 @@ import parse from "html-react-parser";
 
 const MapBoxControls = ({
 	userDetails,
+	updateCurrentLocation,
 	isRouteEditable,
 	allowRouteEditing,
 	onToggleEditable,
@@ -241,6 +242,11 @@ const MapBoxControls = ({
 								? { onClick: () => onToggleSaveShare("share") }
 								: {})}
 							title={__("Share This Route", "mmd")}
+						></div>
+						<div
+							className="fa-solid fa-location-arrow mmd-control getlocation"
+							onClick={updateCurrentLocation}
+							title={__("Get my location", "mmd")}
 						></div>
 						{/* <div
 							className={`fa-solid fa-plus mmd-control addpoi ${

@@ -4,7 +4,7 @@ import Loader from "../../../Loader";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const MapRoutes = ({ mmdObj }) => {
+const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [deletingRouteId, setDeletingRouteId] = useState(null);
 	const [savedRoutes, setSavedRoutes] = useState([]);
@@ -101,10 +101,6 @@ const MapRoutes = ({ mmdObj }) => {
 		return data || {};
 	};
 
-	const handleLoadRoute = (routeId) => {
-		console.log('Loading Route... ', routeId);
-	};
-
 	const handleDeleteRoute = async (routeId) => {
 		if (
 			window.confirm(__("Are you sure you want to delete this route?", "mmd"))
@@ -150,6 +146,14 @@ const MapRoutes = ({ mmdObj }) => {
 	const handlePageChange = (newPage) => {
 		if (newPage > 0 && newPage <= totalPages) {
 			setCurrentPage(newPage);
+		}
+	};
+
+	const handleChangeRoute = (route) => {
+		if (
+			window.confirm(__("This will replace any current routes, are you sure?", "mmd"))
+		) {
+			handleLoadRoute(route)
 		}
 	};
 
@@ -203,8 +207,8 @@ const MapRoutes = ({ mmdObj }) => {
 										<div className="route-controls">
 											<span
 												className="fa-solid fa-eye mmd-route-icon copy"
-												onClick={() => handleLoadRoute(route.routeId)}
-												title={__("View Route", "mmd")}
+												onClick={() => handleChangeRoute(route)}
+												title={__("Load Route", "mmd")}
 											></span>
 										</div>
 									</div>

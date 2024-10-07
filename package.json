@@ -17,10 +17,9 @@
 		"@wordpress/scripts": "^27.1.0",
 		"copy-webpack-plugin": "^10.2.4",
 		"dotenv-webpack": "^8.1.0",
-		"eslint-plugin-prettier": "^4.0.0",
 		"gulp": "^4.0.2",
 		"gulp-zip": "^5.1.0",
-		"prettier": "^2.7.1"
+		"prettier": "^2.8.8"
 	},
 	"scripts": {
 		"start": "NODE_ENV=development wp-scripts start --mode=development --webpack-copy-php --webpack-src-dir=blocks",
