@@ -17,6 +17,34 @@ export const convertDistance = (distance, fromUnit, toUnit) => {
 	return toUnit === "km" ? inKm : inKm * conversionFactors[toUnit];
 };
 
+export const convertRouteDistance = (distanceInKm, toUnit) => {
+	return distanceInKm * conversionFactors[toUnit];
+};
+
+export const getUnitName = (unit) => {
+	const unitNames = {
+		km: "km",
+		mi: "mi",
+		m: "m",
+		ft: "ft",
+		yd: "yds",
+		nm: "nm",
+	};
+	return unitNames[unit] || unit;
+};
+
+export const parseRouteData = (data) => {
+	if (typeof data === "string") {
+		try {
+			return JSON.parse(data);
+		} catch (error) {
+			console.error("Error parsing route data:", error);
+			return {};
+		}
+	}
+	return data || {};
+};
+
 export function debounce(func, wait) {
 	let timeout;
 	return function executedFunction(...args) {

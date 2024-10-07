@@ -224,7 +224,7 @@ body.mmd-box-hide .mmd-boxwrap {
 	position: absolute;
 	top: 0;
 	right: 0;
-	width: 280px;
+	width: 320px;
 	background: #fff;
 	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 	padding: 10px;
@@ -252,11 +252,29 @@ body.mmd-box-hide .mmd-boxwrap {
 	max-height: 420px;
 	overflow-y: scroll;
 }
-
-/* -- Route Controls -- */
-.mmd-extraset-control {
-
+.mmd-map-routes-login {
+	text-align: center;
 }
+.mmd-map-routes-btns {
+	display: flex;
+	align-items: center;
+	justify-content: space-evenly;
+	padding: 0 0 8px;
+}
+.mmd-map-routes a.mmd-button {
+	background-color: #2e9632;
+	color: #fff !important;
+	border: 0;
+	border-radius: 4px;
+	padding: 5px 10px;
+	font-size: 14px;
+	cursor: pointer;
+	min-width: 85px;
+}
+.mmd-map-routes a.mmd-button:hover {
+	background-color: #1e6d24;
+}
+/* -- Route Controls -- */
 .mmd-extraset-control label {
 	display: flex;
 	align-items: center;
@@ -292,6 +310,7 @@ body.mmd-box-hide .mmd-boxwrap {
 	margin: 0;
 	padding: 0;
 	border: 0;
+	cursor: pointer;
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -315,14 +334,21 @@ body.mmd-box-hide .mmd-boxwrap {
 	font-weight: 500;
 }
 .mmd-extraset .mmd-route .route-controls {
-	width: 30px;
+	width: 78px;
 	display: flex;
 	align-items: center;
 	justify-content: flex-end;
 }
 .mmd-extraset .mmd-route span.mmd-route-icon {
 	padding: 3px;
-	margin: 0 0 0 2px;
+	margin: 0 0 0 5px;
+	cursor: pointer;
+}
+.mmd-extraset .mmd-route:hover .route-title,
+.mmd-extraset .mmd-route span.mmd-route-icon:hover,
+.mmd-extraset .mmd-route.selected .route-title {
+	color: #2f9632;
+  	font-weight: bold;
 }
 
 .mmd-extraset .mmd-route-pagination {
@@ -866,7 +892,6 @@ ul.mmd-poi-list li.mmd-poi-marker {
 		bottom: 12px;
 	}
 	.mmd-routes-icon {
-		padding: 6px;
 		margin: 0 10px 0 0;
 	}
 	.mmd-extraset-icon {

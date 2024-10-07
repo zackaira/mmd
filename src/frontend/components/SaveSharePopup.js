@@ -40,8 +40,6 @@ const SaveSharePopup = ({
 	// const [isSharedRoute, setIsSharedRoute] = useState(false);
 	const [isRouteOwner, setIsRouteOwner] = useState(false);
 
-	// console.log("routeData: ", routeData);
-
 	useEffect(() => {
 		setActiveTab(action);
 	}, [action]);
@@ -86,11 +84,6 @@ const SaveSharePopup = ({
 
 	if (!isOpen) return null;
 
-	console.log('routeData', routeData);
-	// console.log('isSharedRoute', isSharedRoute);
-	console.log('isRouteOwner', isRouteOwner);
-	console.log('isSaved', isSaved);
-
 	const handleTabClick = (tab) => {
 		setActiveTab(tab);
 	};
@@ -129,8 +122,6 @@ const SaveSharePopup = ({
 				allowRouteEditing: saveAsNew ? false : formData.allowRouteEditing,
 			},
 		};
-
-		// console.log("submittedRouteData", submittedRouteData);
 
 		try {
 			const response = await fetch(endpoint, {

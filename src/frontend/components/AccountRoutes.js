@@ -5,6 +5,7 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import EditRoutePopup from "./EditRoutePopup";
 import parse from "html-react-parser";
+import { convertRouteDistance, getUnitName, parseRouteData } from "../../utils"
 
 const AccountRoutes = ({ mmdObj }) => {
 	const apiUrl = mmdObj.apiUrl;
@@ -70,43 +71,6 @@ const AccountRoutes = ({ mmdObj }) => {
 		};
 		fetchRoutes();
 	}, [currentPage, mmdObj.apiUrl, mmdObj.userDetails.user_id, mmdObj.nonce]);
-
-	const conversionFactors = {
-		km: 1,
-		mi: 0.621371,
-		m: 1000,
-		ft: 3280.84,
-		yd: 1093.61,
-		nm: 0.539957,
-	};
-
-	const convertDistance = (distanceInKm, toUnit) => {
-		return distanceInKm * conversionFactors[toUnit];
-	};
-
-	const getUnitName = (unit) => {
-		const unitNames = {
-			km: "km",
-			mi: "mi",
-			m: "m",
-			ft: "ft",
-			yd: "yds",
-			nm: "nm",
-		};
-		return unitNames[unit] || unit;
-	};
-
-	const parseRouteData = (data) => {
-		if (typeof data === "string") {
-			try {
-				return JSON.parse(data);
-			} catch (error) {
-				console.error("Error parsing route data:", error);
-				return {};
-			}
-		}
-		return data || {};
-	};
 
 	const handleCopyRouteUrl = (routeId) => {
 		const routeUrl = `${mmdObj.siteUrl}?route=${routeId}`;
@@ -270,7 +234,7 @@ const AccountRoutes = ({ mmdObj }) => {
 								const convertedDistance =
 									savedUnits === "km"
 										? distanceInKm
-										: convertDistance(distanceInKm, savedUnits);
+										: convertRouteDistance(distanceInKm, savedUnits);
 
 								return (
 									<div

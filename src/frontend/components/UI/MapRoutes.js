@@ -3,8 +3,9 @@ import { __ } from "@wordpress/i18n";
 import Loader from "../../../Loader";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { convertRouteDistance, getUnitName, parseRouteData } from "../../../utils"
 
-const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
+const MapRoutes = ({ mmdObj, handleLoadRoute, routeDataOnMap }) => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [deletingRouteId, setDeletingRouteId] = useState(null);
 	const [savedRoutes, setSavedRoutes] = useState([]);
@@ -64,41 +65,18 @@ const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
 		fetchRoutes();
 	}, [currentPage, mmdObj.apiUrl, mmdObj.userDetails.user_id, mmdObj.nonce]);
 
-	const conversionFactors = {
-		km: 1,
-		mi: 0.621371,
-		m: 1000,
-		ft: 3280.84,
-		yd: 1093.61,
-		nm: 0.539957,
-	};
-
-	const convertDistance = (distanceInKm, toUnit) => {
-		return distanceInKm * conversionFactors[toUnit];
-	};
-
-	const getUnitName = (unit) => {
-		const unitNames = {
-			km: "km",
-			mi: "mi",
-			m: "m",
-			ft: "ft",
-			yd: "yds",
-			nm: "nm",
-		};
-		return unitNames[unit] || unit;
-	};
-
-	const parseRouteData = (data) => {
-		if (typeof data === "string") {
-			try {
-				return JSON.parse(data);
-			} catch (error) {
-				console.error("Error parsing route data:", error);
-				return {};
+	const handleCopyRouteUrl = (routeId) => {
+		const routeUrl = `${mmdObj.siteUrl}?route=${routeId}`;
+		navigator.clipboard.writeText(routeUrl).then(
+			() => {
+				toast.success(__("Route URL copied to clipboard!", "mmd"));
+			},
+			(err) => {
+				toast.error(
+					__("Could not copy for some reason, Please try again!", "mmd")
+				);
 			}
-		}
-		return data || {};
+		);
 	};
 
 	const handleDeleteRoute = async (routeId) => {
@@ -150,10 +128,18 @@ const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
 	};
 
 	const handleChangeRoute = (route) => {
+		if (routeDataOnMap?.routeId === route.routeId) {
+			toast.error(__("This is the current route.", "mmd"));
+			return;
+		}
+
 		if (
 			window.confirm(__("This will replace any current routes, are you sure?", "mmd"))
 		) {
-			handleLoadRoute(route)
+			const newRouteUrl = `${mmdObj.siteUrl}/?route=${route.routeId}`;
+			window.history.pushState({}, "", newRouteUrl);
+
+			handleLoadRoute(route);
 		}
 	};
 
@@ -174,21 +160,21 @@ const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
 								const convertedDistance =
 									savedUnits === "km"
 										? distanceInKm
-										: convertDistance(distanceInKm, savedUnits);
+										: convertRouteDistance(distanceInKm, savedUnits);
 
 								return (
 									<div
 										key={route.routeId}
 										className={`mmd-route ${
 											index % 2 === 0 ? "alt-background" : ""
-										}`}
+										} ${routeDataOnMap?.routeId === route.routeId ? "selected" : ""}`}
 									>
 										{deletingRouteId === route.routeId && (
 											<div className="route-loader">
 												<Loader width={14} height={14} />
 											</div>
 										)}
-										<h4 className="route-title">
+										<h4 className="route-title" onClick={() => handleChangeRoute(route)}>
 											{route.routeName}
 											<span
 												className={`route-assosiation fa-solid ${
@@ -206,9 +192,19 @@ const MapRoutes = ({ mmdObj, handleLoadRoute }) => {
 										</div>
 										<div className="route-controls">
 											<span
+												className="fa-solid fa-copy mmd-route-icon copy"
+												onClick={() => handleCopyRouteUrl(route.routeId)}
+												title={__("Copy Route URL", "mmd")}
+											></span>
+											<span
 												className="fa-solid fa-eye mmd-route-icon copy"
 												onClick={() => handleChangeRoute(route)}
 												title={__("Load Route", "mmd")}
+											></span>
+											<span
+												className="fa-solid fa-trash-can mmd-route-icon delete"
+												onClick={() => handleDeleteRoute(route.routeId)}
+												title={__("Delete This Route", "mmd")}
 											></span>
 										</div>
 									</div>

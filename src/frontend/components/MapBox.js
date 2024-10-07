@@ -2033,6 +2033,7 @@ const MapBox = ({ mmdObj }) => {
 				showDistanceMarkers={showDistanceMarkers}
 				onToggleDistanceMarkers={toggleDistanceMarkers}
 				handleLoadRoute={loadSavedRoute}
+				routeDataOnMap={loadedRouteData}
 			/>
 
 			{editingPoi && (

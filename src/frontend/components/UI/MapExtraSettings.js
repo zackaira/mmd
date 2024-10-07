@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { __ } from "@wordpress/i18n";
 import MapRoutes from "./MapRoutes";
 
-const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers, handleLoadRoute }) => {
+const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers, handleLoadRoute, routeDataOnMap }) => {
     const [panelVisible, setPanelVisible] = useState(false);
     const [showRoutes, setShowRoutes] = useState(false);
     const [showControls, setShowControls] = useState(false);
@@ -37,11 +37,9 @@ const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers
 			)}
 			<div className={`mmd-extraset ${panelVisible ? "open" : ""}`} ref={panelRef}>
 				<div className="mmd-extra-icons">
-					{mmdObj.userDetails?.user_id && (
-						<div className="mmd-routes-icon" onClick={() => togglePanel("routes")}>
-							<span className="fa-solid fa-route"></span>
-						</div>
-					)}
+					<div className="mmd-routes-icon" onClick={() => togglePanel("routes")}>
+						<span className="fa-solid fa-route"></span>
+					</div>
 					<div className="mmd-extraset-icon" onClick={() => togglePanel("controls")}>
 						<span className="fa-solid fa-gear"></span>
 					</div>
@@ -73,9 +71,29 @@ const MapExtraSettings = ({ mmdObj, showDistanceMarkers, onToggleDistanceMarkers
 
 					{showRoutes && (
 						<div className={`mmd-map-routes`}>
-							<div>
-								<MapRoutes mmdObj={mmdObj} handleLoadRoute={handleLoadRoute} />
-							</div>
+							{mmdObj.userDetails?.user_id ? (
+								<div>
+									<MapRoutes
+										mmdObj={mmdObj}
+										handleLoadRoute={handleLoadRoute}
+										routeDataOnMap={routeDataOnMap}
+									/>
+								</div>
+							) : (
+								<div className="mmd-map-routes-login">
+									<p>
+										{__("Please login or Register for Saved Routes.", "mmd")}
+									</p>
+									<div className="mmd-map-routes-btns">
+										<a href={`${mmdObj.siteUrl}/account/?user=login`} className="mmd-button">
+											{__("Login", "mmd")}
+										</a>
+										<a href={`${mmdObj.siteUrl}/account/?user=register`} className="mmd-button">
+											{__("Register", "mmd")}
+										</a>
+									</div>
+								</div>
+							)}
 						</div>
 					)}
 				</div>
