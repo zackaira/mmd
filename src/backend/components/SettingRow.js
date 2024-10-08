@@ -4,6 +4,7 @@ import InputToggleSwitch from "./inputs/InputToggleSwitch";
 import InputSelect from "./inputs/InputSelect";
 import InputText from "./inputs/InputText";
 import InputRange from "./inputs/InputRange";
+import InputElements from "./inputs/InputElements";
 import ColorPicker from "./inputs/ColorPicker";
 import SettingTooltip from "./UI/SettingTooltip";
 import { mmdConvertToSlug } from "../helpers";
@@ -18,6 +19,8 @@ const SettingRow = (props) => {
 	let theInput;
 	if (props.inputType === "toggle") {
 		theInput = <InputToggleSwitch {...props} />;
+	} else if (props.inputType === "repeater") {
+		theInput = <InputElements {...props} />;
 	} else if (props.inputType === "select") {
 		theInput = <InputSelect {...props} />;
 	} else if (props.inputType === "range") {

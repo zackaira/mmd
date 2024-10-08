@@ -3,8 +3,8 @@
  */
 import React from "react";
 import { createRoot } from "react-dom/client";
-import Settings from "./backend/Settings";
-import "./backend/settings.css";
+import SettingsPage from "./SettingsPage";
+import "./settings.css";
 
 document.addEventListener("DOMContentLoaded", function () {
 	const mmdObj = mmdSetObj;
@@ -12,6 +12,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 	if (element) {
 		const root = createRoot(element);
-		root.render(<Settings mmdObj={mmdObj} />);
+		root.render(<SettingsPage mmdObj={mmdObj} />);
 	}
 });

@@ -32,6 +32,7 @@ class MapMyDistance_Admin {
 
 		// Add Dashboard Widget
 		add_action('wp_dashboard_setup', array( $this, 'mmd_dashboard_widget' ));
+		add_action('wp_dashboard_setup', array( $this, 'mmd_dashboard_application_widget' ));
 	}
 
 	/**
@@ -42,9 +43,9 @@ class MapMyDistance_Admin {
 		$slug = 'mmd-settings';
 
 		add_submenu_page(
-			'edit.php?post_type=mmd',
-			__('Settings', 'mmd'),
-			__('Settings', 'mmd'),
+			'options-general.php',
+			__('MMD Settings', 'mmd'),
+			__('MMD Settings', 'mmd'),
 			$capability,
 			$slug,
 			array($this, 'mmd_menu_page_template')
@@ -199,6 +200,23 @@ class MapMyDistance_Admin {
 	 */
 	public function mmd_render_dashboard_widget() {
 		echo '<div id="mmd-dashboard-widget"></div>';
+	}
+
+	/**
+	 * Create a Dashboard Widget for MMD
+	 */
+	public function mmd_dashboard_application_widget() {
+		wp_add_dashboard_widget(
+			'mmd_dashboard_application_widget',
+			__( 'MMD Event Applications', 'mmd' ), array( $this, 'mmd_render_dashboard_application_widget' )
+		);
+	}
+
+	/**
+	 * Render the Dashboard Widget info
+	 */
+	public function mmd_render_dashboard_application_widget() {
+		echo '<div id="mmd-dashboard-app-widget"></div>';
 	}
 	
 	/**

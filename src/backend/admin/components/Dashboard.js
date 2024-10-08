@@ -9,17 +9,11 @@ const Dashboard = ({ mmdObj }) => {
 	useEffect(() => {
 		const fetchUserStats = async () => {
 			try {
-				console.log("Fetching from URL:", `${mmdObj.apiUrl}mmd-api/v1/stats`);
-				console.log("Nonce:", mmdObj.nonce);
-
 				const response = await fetch(`${mmdObj.apiUrl}mmd-api/v1/stats`, {
 					headers: {
 						"X-WP-Nonce": mmdObj.nonce,
 					},
 				});
-
-				console.log("Response status:", response.status);
-				console.log("Response OK:", response.ok);
 
 				if (!response.ok) {
 					const errorText = await response.text();
@@ -30,7 +24,6 @@ const Dashboard = ({ mmdObj }) => {
 				}
 
 				const data = await response.json();
-				console.log("Received data:", data);
 
 				setUserStats(data);
 				setIsLoading(false);

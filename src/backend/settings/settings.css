@@ -93,6 +93,9 @@ a.stand-out-note-link:hover {
 	display: flex;
 	justify-content: flex-end;
 }
+.mmdSettingBar.bottom .mmdSettingBarOptions {
+	display: none;
+}
 .mmdSettingBarOptions > a {
 	color: #8b8b8b;
 	font-size: 20px;
@@ -916,6 +919,92 @@ a.mmd-account {
 	border: 1px solid #acacac;
 	color: #747474;
 }
+/* -- Repeater Fields -- */
+.repeater-wrapper .fields-list {
+	margin: 45px 0 0;
+}
+.repeater-wrapper .fields-list .field-item {
+	display: flex;
+	flex-direction: column;
+	margin: 0 0 20px;
+	padding: 0 0 20px;
+	border-bottom: 1px solid #CCC;
+	color: #999;
+	font-weight: normal;
+	font-size: 12px;
+}
+.repeater-wrapper .fields-list .field-item:last-child {
+	border: 0;
+}
+.repeater-wrapper .fields-list .field-item .dashicons-menu-alt {
+	width: 32px;
+	height: 28px;
+	font-size: 18px;
+	background-color: #efefef;
+	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 15%);
+	border-radius: 4px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+.repeater-wrapper .fields-list .field-item .field-item-top {
+	display: flex;
+  	align-items: center;
+	gap: 12px;
+}
+.repeater-wrapper .fields-list .field-item .field-item-name {
+	flex: 1;
+	color: #000;
+	font-weight: bold;
+	font-size: 15px;
+}
+.repeater-wrapper .fields-list .field-item .field-item-name span {
+	color: #999;
+	font-weight: normal;
+	font-size: 12px;
+}
+.repeater-wrapper .fields-list .field-item .field-item-value {
+	flex: 1;
+}
+.repeater-wrapper .fields-list .field-item .field-item-desc {
+	padding: 12px 45px 0;
+}
+.repeater-wrapper .fields-list .field-item button {
+	padding: 0;
+	width: 22px;
+	height: 22px;
+	border-radius: 10px;
+	border: 0;
+	box-shadow: inset 0 0 0 1px rgb(0 0 0 / 10%);
+	font-size: 16px;
+	cursor: pointer;
+}
+.repeater-wrapper .field-wrapper {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+.repeater-wrapper .field-wrapper .inputs {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.repeater-wrapper .field-wrapper .inputs input {}
+.repeater-wrapper .field-wrapper .txtarea {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+}
+.repeater-wrapper .field-wrapper .txtarea textarea {
+	min-height: 80px;
+}
+.repeater-wrapper .field-wrapper button {
+	flex: 1;
+  	padding: 5px 10px 6px;
+	cursor: pointer;
+}
+
 /* -- Multi Checkbox Inputs -- */
 /* .mmd-multioption {
 	display: inline-block;

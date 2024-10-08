@@ -25,8 +25,6 @@ const EditRoutePopup = ({
 	const [isSharedRoute, setIsSharedRoute] = useState(false);
 	const [isSaved, setIsSaved] = useState(false);
 
-	console.log("route", route);
-
 	useEffect(() => {
 		if (isOpen && route) {
 			setRouteName(route.routeName || "");

@@ -152,13 +152,19 @@ class MapMyDistance {
 
 			wp_enqueue_style('mmd-user-account-style');
 			wp_enqueue_script('mmd-user-account-script');
-			wp_localize_script('mmd-user-account-script', 'mmdAccountObj', array(
+
+			$localized_data = array(
 				'siteUrl' => esc_url(home_url()),
 				'apiUrl' => esc_url(get_rest_url()),
 				'nonce' => wp_create_nonce('wp_rest'),
 				'userDetails' => $user_details,
 				'isPremium'  => $isPremium,
-			));
+			);
+			// Conditionally add 'event_types' if the user is an event organizer
+			if ((bool) get_user_meta($user_id, 'event_organizer', true)) {
+				$localized_data['event_types'] = json_decode($mmdOptions->settings->event_types);
+			}
+			wp_localize_script('mmd-user-account-script', 'mmdAccountObj', $localized_data);
 		}
 	} // End mmd_frontend_scripts ()
 
@@ -173,6 +179,8 @@ class MapMyDistance {
 		$mmdSavedOptions = get_option('mmd_options');
 		$mmdOptions = $mmdSavedOptions ? json_decode($mmdSavedOptions) : '';
 		$mmdDefaults = get_option('mmd_default_options');
+
+		$isPremium = false;
 
 		// Admin CSS
 		wp_register_style('mmd-admin-style', esc_url(MMD_PLUGIN_URL . 'dist/admin' . $suffix . '.css'), array(), MMD_PLUGIN_VERSION);
@@ -200,6 +208,7 @@ class MapMyDistance {
 				'nonce' => wp_create_nonce('wp_rest'),
 				'accountUrl' => false,
 				'upgradeUrl' => false,
+				'isPremium' => $isPremium,
 				// 'wcActive' => MMD_Admin::mmd_is_plugin_active('woocommerce.php'),
 				// 'pluginUrl' => esc_url(MMD_PLUGIN_URL),
 				'mmdDefaults' => json_decode($mmdDefaults),
@@ -304,12 +313,12 @@ class MapMyDistance {
 	public static function mmdDefaults() {
 		$initialSettings = array(
 			"settings" => array(
-				"chart_display" => "7_days",
+				"event_types" => "",
 			),
-			"blocks" => array( // For adding a new block, update this AND ../src/backend/helpers.js AND class-notices.php newblocks number
-				"disclosure" => true, // 2
-				"button" => true, // 1
-			),
+			// "blocks" => array( // For adding a new block, update this AND ../src/backend/helpers.js AND class-notices.php newblocks number
+			// 	"disclosure" => true, // 2
+			// 	"button" => true, // 1
+			// ),
 		);
 		return $initialSettings;
 	}
@@ -336,33 +345,33 @@ class MapMyDistance {
 	}
 
 	/**
-	 * Create custom database table for tracking visits.
+	 * Create custom database table for Saving MMD Routes.
 	 */
-	private function mmd_create_custom_table() {
+	private function mmd_create_user_routes_table() {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'mmd_map_routes';
-    
-        $charset_collate = $wpdb->get_charset_collate();
-    
-        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-            id CHAR(32) NOT NULL,
-            route_name VARCHAR(255) NOT NULL,
-            route_description TEXT,
-            route_tags TEXT,
-            route_activity VARCHAR(100),
-            route_data LONGTEXT NOT NULL,
-            created_at DATETIME NOT NULL,
-            route_distance FLOAT NOT NULL,
-            is_public BOOLEAN DEFAULT FALSE,
-            event_type_id INT UNSIGNED,
-            PRIMARY KEY (id),
-            INDEX idx_created_at (created_at),
-            INDEX idx_is_public (is_public),
-            INDEX idx_event_type (event_type_id)
-        ) $charset_collate;";
-    
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
+		$table_name = $wpdb->prefix . 'mmd_map_routes';
+
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+			id CHAR(32) NOT NULL,
+			route_name VARCHAR(255) NOT NULL,
+			route_description TEXT,
+			route_tags TEXT,
+			route_activity VARCHAR(100),
+			route_data LONGTEXT NOT NULL,
+			created_at DATETIME NOT NULL,
+			route_distance FLOAT NOT NULL,
+			is_public BOOLEAN DEFAULT FALSE,
+			event_type VARCHAR(100),
+			PRIMARY KEY (id),
+			INDEX idx_created_at (created_at),
+			INDEX idx_is_public (is_public),
+			INDEX idx_event_type (event_type)
+		) $charset_collate;";
+
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
     }
 
 	/**
@@ -371,9 +380,9 @@ class MapMyDistance {
 	public function mmd_create_user_route_associations_table() {
 		global $wpdb;
 		$table_name = $wpdb->prefix . 'mmd_user_route_associations';
-	
+
 		$charset_collate = $wpdb->get_charset_collate();
-	
+
 		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
 			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
 			user_id BIGINT UNSIGNED NOT NULL,
@@ -385,56 +394,38 @@ class MapMyDistance {
 			INDEX (user_id),
 			INDEX (route_id)
 		) $charset_collate;";
-	
+
 		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 		dbDelta($sql);
 	}
 
-	public function mmd_create_event_types_table() {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'mmd_event_types';
-    
-        $charset_collate = $wpdb->get_charset_collate();
-    
-        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-            id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            name VARCHAR(100) NOT NULL UNIQUE,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-            INDEX idx_name (name)
-        ) $charset_collate;";
-    
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
-    }
-
 	public function mmd_create_public_route_applications_table() {
         global $wpdb;
-        $table_name = $wpdb->prefix . 'mmd_public_route_applications';
-    
-        $charset_collate = $wpdb->get_charset_collate();
-    
-        $sql = "CREATE TABLE IF NOT EXISTS $table_name (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            route_id CHAR(32) NOT NULL,
-            user_id BIGINT UNSIGNED NOT NULL,
-            event_type_id INT UNSIGNED NOT NULL,
-            status ENUM('pending', 'approved', 'denied') DEFAULT 'pending',
-            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            processed_at TIMESTAMP NULL,
-            admin_notes TEXT,
-            FOREIGN KEY (route_id) REFERENCES {$wpdb->prefix}mmd_map_routes(id) ON DELETE CASCADE,
-            FOREIGN KEY (user_id) REFERENCES {$wpdb->users}(ID) ON DELETE CASCADE,
-            FOREIGN KEY (event_type_id) REFERENCES {$wpdb->prefix}mmd_event_types(id) ON DELETE CASCADE,
-            INDEX (route_id),
-            INDEX (user_id),
-            INDEX (event_type_id),
-            INDEX (status)
-        ) $charset_collate;";
-    
-        require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
-        dbDelta($sql);
+		$table_name = $wpdb->prefix . 'mmd_public_route_applications';
+
+		$charset_collate = $wpdb->get_charset_collate();
+
+		$sql = "CREATE TABLE IF NOT EXISTS $table_name (
+			id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+			route_id CHAR(32) NOT NULL,
+			user_id BIGINT UNSIGNED NOT NULL,
+			event_type VARCHAR(100) NOT NULL,
+			about_event TEXT NULL,
+			links TEXT NULL,
+			status ENUM('pending', 'approved', 'denied') DEFAULT 'pending',
+			applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			processed_at TIMESTAMP NULL,
+			admin_notes TEXT,
+			FOREIGN KEY (route_id) REFERENCES {$wpdb->prefix}mmd_map_routes(id) ON DELETE CASCADE,
+			FOREIGN KEY (user_id) REFERENCES {$wpdb->users}(ID) ON DELETE CASCADE,
+			INDEX (route_id),
+			INDEX (user_id),
+			INDEX (event_type),
+			INDEX (status)
+		) $charset_collate;";
+
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
     }
 
 	public function mmd_update_database() {
@@ -457,9 +448,8 @@ class MapMyDistance {
         $this->_update_default_settings();
         $this->_log_version_number();
 
-        $this->mmd_create_custom_table();
+        $this->mmd_create_user_routes_table();
         $this->mmd_create_user_route_associations_table();
-        $this->mmd_create_event_types_table();
         $this->mmd_create_public_route_applications_table();
 
         update_option('mmd_db_version', MMD_PLUGIN_DB_VERSION);

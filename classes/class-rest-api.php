@@ -93,6 +93,83 @@ class MapMyDistance_Rest_Routes {
 			'callback' => [$this, 'mmd_delete_route'],
 			'permission_callback' => [$this, 'mmd_save_route_permission'],
 		]);
+
+		/*
+		 * Public Routes API
+		 */
+		// Apply for public route
+		register_rest_route('mmd-api/v1', '/apply-for-public-route', [
+			'methods' => 'POST',
+			'callback' => [$this, 'mmd_apply_for_public_route'],
+			'permission_callback' => [$this, 'mmd_save_route_permission'],
+			'args' => [
+				'route_id' => [
+					'required' => true,
+					'validate_callback' => function($param) {
+						return is_string($param);
+					}
+				],
+				'event_type' => [
+					'required' => true,
+					'validate_callback' => function($param) {
+						return is_string($param);
+					}
+				],
+				'about_event' => [
+					'required' => true,
+					'validate_callback' => function($param) {
+						return is_string($param);
+					}
+				],
+				'links' => [
+					'required' => false,
+					'validate_callback' => function($param) {
+						return is_string($param);
+					}
+				]
+			]
+		]);
+		// Admin Get public route applications
+		register_rest_route('mmd-api/v1', '/public-route-applications', [
+			'methods' => 'GET',
+			'callback' => [$this, 'mmd_get_public_route_applications'],
+			'permission_callback' => [$this, 'mmd_admin_permissions_check'],
+			'args' => [
+				'status' => [
+					'required' => false,
+					'default' => 'pending',
+					'validate_callback' => function($param) {
+						return in_array($param, ['pending', 'approved', 'denied', 'all']);
+					}
+				]
+			]
+		]);
+		// Approve or Deny public route applications
+		register_rest_route('mmd-api/v1', '/admin-approve-public-route/(?P<id>\d+)', [
+			'methods' => 'POST',
+			'callback' => [$this, 'mmd_admin_approve_public_route'],
+			'permission_callback' => function() {
+				return current_user_can('manage_options');
+			},
+			'args' => [
+				'id' => [
+					'validate_callback' => function($param, $request, $key) {
+						return is_numeric($param);
+					}
+				],
+				'status' => [
+					'required' => true,
+					'validate_callback' => function($param, $request, $key) {
+						return in_array($param, ['approved', 'denied']);
+					}
+				],
+				'admin_notes' => [
+					'required' => false,
+					'sanitize_callback' => 'sanitize_textarea_field'
+				]
+			]
+		]);
+		
 		/*
 		 * Admin Stats API
 		 */
@@ -247,7 +324,9 @@ class MapMyDistance_Rest_Routes {
 			$route_activity = sanitize_text_field($params['routeActivity']);
 			$distance = isset($params['routeDistance']) ? floatval($params['routeDistance']) : 0;
 			$wants_public = isset($params['wantsPublic']) ? (bool)$params['wantsPublic'] : false;
-			$event_type_id = isset($params['eventTypeId']) ? intval($params['eventTypeId']) : null;
+			$event_type = isset($params['eventType']) ? sanitize_text_field($params['eventType']) : '';
+			$about_event = isset($params['aboutEvent']) ? sanitize_textarea_field($params['aboutEvent']) : '';
+			$links = isset($params['links']) ? sanitize_textarea_field($params['links']) : '';
 		
 			// Prepare route data
 			$route_data = [
@@ -276,9 +355,9 @@ class MapMyDistance_Rest_Routes {
 					'created_at' => current_time('mysql'),
 					'route_distance' => $distance,
 					'is_public' => false,  // Always set to false initially
-					'event_type_id' => null,  // Always set to null initially
+                	'event_type' => '',  // Always set to empty string initially
 				],
-				['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%d']
+				['%s', '%s', '%s', '%s', '%s', '%s', '%s', '%f', '%d', '%s']
 			);
 		
 			if ($result === false) {
@@ -302,7 +381,7 @@ class MapMyDistance_Rest_Routes {
 		
 			// If the user wants the route to be public, create a public route application
 			if ($wants_public) {
-				$this->create_public_route_application($hash_id, $user_id, $event_type_id);
+				$this->create_public_route_application($hash_id, $user_id, $event_type, $about_event, $links);
 			}
 		
 			// Prepare the response data
@@ -317,9 +396,9 @@ class MapMyDistance_Rest_Routes {
 					'routeActivity' => $route_activity,
 					'routeDistance' => $distance,
 					'isRouteOwner' => true,
-					'isPublic' => false,
-					'wantsPublic' => $wants_public,
-					'eventTypeId' => null,
+					// 'isPublic' => false,
+					// 'wantsPublic' => $wants_public,
+                	// 'eventType' => '',
 					'routeData' => $route_data,
 				]
 			];
@@ -328,6 +407,34 @@ class MapMyDistance_Rest_Routes {
 		} catch (Exception $e) {
 			return new WP_Error('save_route_error', $e->getMessage(), ['status' => 500]);
 		}
+	}
+
+	private function create_public_route_application($route_id, $user_id, $event_type, $about_event = '', $links = '') {
+		global $wpdb;
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
+	
+		$application_data = [
+			'route_id' => $route_id,
+			'user_id' => $user_id,
+			'event_type' => $event_type,
+			'about_event' => $about_event,
+			'links' => $links,
+			'status' => 'pending',
+			'applied_at' => current_time('mysql')
+		];
+	
+		$inserted = $wpdb->insert(
+			$applications_table,
+			$application_data,
+			['%s', '%d', '%s', '%s', '%s', '%s', '%s']
+		);
+	
+		if ($inserted === false) {
+			error_log("Failed to create public route application. Error: " . $wpdb->last_error);
+			return false;
+		}
+	
+		return true;
 	}
 
 	// Function to Sanitize the Points of Interest
@@ -400,7 +507,10 @@ class MapMyDistance_Rest_Routes {
 		];
 	
 		$wants_public = isset($params['wantsPublic']) ? (bool)$params['wantsPublic'] : false;
-		$event_type_id = isset($params['eventTypeId']) ? intval($params['eventTypeId']) : null;
+		$event_type = isset($params['eventType']) ? sanitize_text_field($params['eventType']) : '';
+		$about_event = isset($params['aboutEvent']) ? sanitize_textarea_field($params['aboutEvent']) : '';
+		$links = isset($params['links']) ? sanitize_textarea_field($params['links']) : '';
+
 	
 		// If saving as new, generate a new unique ID for the route
 		if ($save_as_new) {
@@ -408,7 +518,7 @@ class MapMyDistance_Rest_Routes {
 			$updated_data['id'] = $new_route_id;
 			$updated_data['created_at'] = current_time('mysql');
 			$updated_data['is_public'] = false;
-			$updated_data['event_type_id'] = null;
+        	$updated_data['event_type'] = '';
 	
 			// Insert the new route
 			$wpdb->insert($table_name, $updated_data);
@@ -432,7 +542,7 @@ class MapMyDistance_Rest_Routes {
 	
 		// If the user wants the route to be public, create or update a public route application
 		if ($wants_public) {
-			$this->create_or_update_public_route_application($route_id, $current_user_id, $event_type_id);
+			$this->create_or_update_public_route_application($route_id, $current_user_id, $event_type, $about_event, $links);
 		}
 	
 		// Prepare the response data
@@ -447,9 +557,9 @@ class MapMyDistance_Rest_Routes {
 				'routeActivity' => $updated_data['route_activity'],
 				'routeDistance' => $updated_data['route_distance'],
 				'isRouteOwner' => ($user_association && $user_association->association_type === 'owner'),
-				'isPublic' => false,
-				'wantsPublic' => $wants_public,
-				'eventTypeId' => null,
+				// 'isPublic' => false,
+				// 'wantsPublic' => $wants_public,
+				// 'eventType' => '',
 				'routeData' => $route_data,
 			]
 		];
@@ -457,7 +567,7 @@ class MapMyDistance_Rest_Routes {
 		return new WP_REST_Response($response, 200);
 	}
 	
-	private function create_or_update_public_route_application($route_id, $user_id, $event_type_id) {
+	private function create_or_update_public_route_application($route_id, $user_id, $event_type, $about_event = '', $links = '') {
 		global $wpdb;
 		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
 	
@@ -468,33 +578,37 @@ class MapMyDistance_Rest_Routes {
 			$user_id
 		));
 	
+		$application_data = [
+			'event_type' => $event_type,
+			'about_event' => $about_event,
+			'links' => $links,
+			'status' => 'pending',
+			'applied_at' => current_time('mysql'),
+			'processed_at' => null,
+			'admin_notes' => null,
+		];
+	
 		if ($existing_application) {
 			// Update existing application
 			$wpdb->update(
 				$applications_table,
-				[
-					'event_type_id' => $event_type_id,
-					'status' => 'pending',
-					'applied_at' => current_time('mysql'),
-					'processed_at' => null,
-					'admin_notes' => null,
-				],
+				$application_data,
 				['id' => $existing_application->id],
-				['%d', '%s', '%s', '%s', '%s'],
+				['%s', '%s', '%s', '%s', '%s', '%s', '%s'],
 				['%d']
 			);
 		} else {
 			// Create new application
 			$wpdb->insert(
 				$applications_table,
-				[
-					'route_id' => $route_id,
-					'user_id' => $user_id,
-					'event_type_id' => $event_type_id,
-					'status' => 'pending',
-					'applied_at' => current_time('mysql'),
-				],
-				['%s', '%d', '%d', '%s', '%s']
+				array_merge(
+					[
+						'route_id' => $route_id,
+						'user_id' => $user_id,
+					],
+					$application_data
+				),
+				['%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s']
 			);
 		}
 	}
@@ -789,56 +903,253 @@ class MapMyDistance_Rest_Routes {
 	/*
 	 * Admin Functions
 	 */
-	public function mmd_admin_approve_public_route($request) {
+	public function mmd_apply_for_public_route($request) {
+		error_log('mmd_apply_for_public_route function called');
+		error_log('Request parameters: ' . print_r($request->get_params(), true));
+	
+		global $wpdb;
+	
+		// Verify nonce
+		if (!wp_verify_nonce($request->get_header('X-WP-Nonce'), 'wp_rest')) {
+			return new WP_Error('invalid_nonce', 'Invalid nonce', array('status' => 403));
+		}
+	
+		$route_id = sanitize_text_field($request['route_id']);
+		$user_id = get_current_user_id();
+		$event_type = sanitize_text_field($request['event_type']);
+		$about_event = sanitize_textarea_field($request['about_event']);
+		$links = sanitize_textarea_field($request['links']);
+		
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
+	
+		// Check if the user owns the route
+		$is_owner = $wpdb->get_var($wpdb->prepare(
+			"SELECT COUNT(*) FROM {$wpdb->prefix}mmd_user_route_associations 
+			WHERE user_id = %d AND route_id = %s AND association_type = 'owner'",
+			$user_id, $route_id
+		));
+	
+		if (!$is_owner) {
+			error_log("User $user_id is not the owner of route $route_id");
+			return new WP_Error('not_owner', "User $user_id is not the owner of route $route_id", array('status' => 403));
+		}
+	
+		// Check if an application already exists
+		$existing_application = $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $applications_table WHERE route_id = %s",
+			$route_id
+		));
+	
+		$application_data = array(
+			'route_id' => $route_id,
+			'user_id' => $user_id,
+			'event_type' => $event_type,
+			'about_event' => $about_event,
+			'links' => $links,
+			'status' => 'pending',
+			'applied_at' => current_time('mysql')
+		);
+	
+		error_log('Application data to be inserted/updated: ' . print_r($application_data, true));
+	
+		if ($existing_application) {
+			if ($existing_application->status === 'pending') {
+				error_log("An application for route $route_id is already pending");
+				return new WP_Error('application_exists', "An application for route $route_id is already pending", array('status' => 400));
+			} else {
+				// Update existing application
+				$updated = $wpdb->update(
+					$applications_table,
+					$application_data,
+					array('id' => $existing_application->id),
+					array('%s', '%d', '%s', '%s', '%s', '%s', '%s'),
+					array('%d')
+				);
+	
+				if ($updated === false) {
+					error_log("Failed to update application for route $route_id. wpdb error: " . $wpdb->last_error);
+					return new WP_Error('update_failed', 'Failed to update application', array('status' => 500));
+				}
+				error_log("Successfully updated application for route $route_id");
+			}
+		} else {
+			// Create new application
+			$inserted = $wpdb->insert(
+				$applications_table,
+				$application_data,
+				array('%s', '%d', '%s', '%s', '%s', '%s', '%s')
+			);
+	
+			if ($inserted === false) {
+				error_log("Failed to create application for route $route_id. wpdb error: " . $wpdb->last_error);
+				return new WP_Error('insert_failed', 'Failed to create application', array('status' => 500));
+			}
+			error_log("Successfully created new application for route $route_id");
+		}
+	
+		return rest_ensure_response(array(
+			'success' => true,
+			'message' => 'Application submitted successfully'
+		));
+	}
+
+	public function mmd_get_public_route_applications($request) {
 		if (!current_user_can('manage_options')) {
-			return new WP_Error('forbidden', 'You do not have permission to approve routes', ['status' => 403]);
+			return new WP_Error('forbidden', 'You do not have permission to view applications', array('status' => 403));
 		}
 	
 		global $wpdb;
-		$application_id = $request['id'];
-		$approval_status = $request['status']; // 'approved' or 'denied'
-		$admin_notes = $request['admin_notes'] ?? '';
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
+		$routes_table = $wpdb->prefix . 'mmd_map_routes';
+		$users_table = $wpdb->prefix . 'users';
 	
-		$application_table = $wpdb->prefix . 'mmd_public_route_applications';
+		$status = isset($request['status']) ? sanitize_text_field($request['status']) : 'pending';
+		$page = isset($request['page']) ? max(1, intval($request['page'])) : 1;
+		$per_page = 10;
+	
+		error_log("Fetching applications with status: " . $status . ", page: " . $page);
+	
+		// Get counts
+		$count_query = "SELECT 
+							SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_count,
+							SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_count,
+							SUM(CASE WHEN status = 'denied' THEN 1 ELSE 0 END) as denied_count
+						FROM $applications_table";
+		$counts = $wpdb->get_row($count_query);
+		
+		error_log("Counts query: " . $count_query);
+		error_log("Counts result: " . print_r($counts, true));
+	
+		// Get applications based on status
+		$where_clause = $wpdb->prepare("WHERE a.status = %s", $status);
+		$limit_clause = $status === 'pending' 
+			? $wpdb->prepare("LIMIT %d OFFSET %d", $per_page, ($page - 1) * $per_page)
+			: "LIMIT 10";
+	
+		$query = "SELECT a.id, a.event_type, a.applied_at, r.id as route_id, r.route_name, 
+						 u.ID as user_id, u.display_name as user_name
+				  FROM $applications_table a
+				  JOIN $routes_table r ON a.route_id = r.id
+				  JOIN $users_table u ON a.user_id = u.ID
+				  $where_clause
+				  ORDER BY a.applied_at DESC
+				  $limit_clause";
+	
+		error_log("Applications query: " . $query);
+	
+		$applications = $wpdb->get_results($query);
+	
+		error_log("Applications result: " . print_r($applications, true));
+	
+		if ($applications === null) {
+			error_log("Query failed: " . $wpdb->last_error);
+			return new WP_Error('query_failed', 'Failed to retrieve applications', array('status' => 500));
+		}
+	
+		$site_url = get_site_url();
+	
+		foreach ($applications as &$app) {
+			$app->route_url = $site_url . "/?route=" . $app->route_id;
+			$app->user_profile_url = admin_url("user-edit.php?user_id=" . $app->user_id);
+			$app->applied_at = mysql2date('F j, Y g:i a', $app->applied_at);
+			// Use event_type directly
+			$app->event_name = $app->event_type;
+		}
+	
+		$total_pages = $status === 'pending' 
+			? ceil($counts->pending_count / $per_page)
+			: 1;
+	
+		$response = [
+			'success' => true,
+			'applications' => $applications,
+			'counts' => $counts,
+			'pagination' => [
+				'current_page' => $page,
+				'total_pages' => $total_pages,
+				'per_page' => $per_page
+			]
+		];
+	
+		error_log("Final response: " . print_r($response, true));
+	
+		return rest_ensure_response($response);
+	}
+	
+	public function mmd_admin_approve_public_route($request) {
+		if (!current_user_can('manage_options')) {
+			return new WP_Error('forbidden', 'You do not have permission to approve routes', array('status' => 403));
+		}
+	
+		global $wpdb;
+		$application_id = intval($request['id']);
+		$approval_status = sanitize_text_field($request['status']); // 'approved' or 'denied'
+		$admin_notes = sanitize_textarea_field($request['admin_notes']);
+	
+		$applications_table = $wpdb->prefix . 'mmd_public_route_applications';
 		$routes_table = $wpdb->prefix . 'mmd_map_routes';
 	
 		// Get the application details
 		$application = $wpdb->get_row($wpdb->prepare(
-			"SELECT * FROM $application_table WHERE id = %d",
+			"SELECT * FROM $applications_table WHERE id = %d",
 			$application_id
 		));
 	
 		if (!$application) {
-			return new WP_Error('not_found', 'Application not found', ['status' => 404]);
+			return new WP_Error('not_found', 'Application not found', array('status' => 404));
 		}
 	
-		// Update the application status
-		$wpdb->update(
-			$application_table,
-			[
-				'status' => $approval_status,
-				'processed_at' => current_time('mysql'),
-				'admin_notes' => $admin_notes
-			],
-			['id' => $application_id]
-		);
+		// Start transaction
+		$wpdb->query('START TRANSACTION');
 	
-		// If approved, update the route
-		if ($approval_status === 'approved') {
-			$wpdb->update(
-				$routes_table,
-				[
-					'is_public' => true,
-					'event_type_id' => $application->event_type_id
-				],
-				['id' => $application->route_id]
+		try {
+			// Update the application status
+			$updated = $wpdb->update(
+				$applications_table,
+				array(
+					'status' => $approval_status,
+					'processed_at' => current_time('mysql'),
+					'admin_notes' => $admin_notes
+				),
+				array('id' => $application_id),
+				array('%s', '%s', '%s'),
+				array('%d')
 			);
-		}
 	
-		return new WP_REST_Response([
-			'success' => true,
-			'message' => 'Application ' . $approval_status
-		], 200);
+			if ($updated === false) {
+				throw new Exception('Failed to update application status');
+			}
+	
+			// If approved, update the route
+			if ($approval_status === 'approved') {
+				$route_updated = $wpdb->update(
+					$routes_table,
+					array(
+						'is_public' => true,
+						'event_type' => $application->event_type
+					),
+					array('id' => $application->route_id),
+					array('%d', '%s'),
+					array('%s')
+				);
+	
+				if ($route_updated === false) {
+					throw new Exception('Failed to update route status');
+				}
+			}
+	
+			// Commit the transaction
+			$wpdb->query('COMMIT');
+	
+			return rest_ensure_response(array(
+				'success' => true,
+				'message' => 'Application ' . $approval_status
+			));
+		} catch (Exception $e) {
+			// Rollback the transaction in case of any error
+			$wpdb->query('ROLLBACK');
+			return new WP_Error('update_failed', $e->getMessage(), array('status' => 500));
+		}
 	}
 
 	/*

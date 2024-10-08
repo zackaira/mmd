@@ -141,6 +141,11 @@ body.woocommerce-account
 	align-items: baseline;
 	justify-content: space-evenly;
 }
+.mmd-user-routes .mmd-route.iseo .route-controls {
+	max-width: 120px;
+	justify-content: space-between;
+  	padding: 0 8px 0 4px;
+}
 .mmd-user-routes .mmd-route .route-controls .mmd-route-icon {
 	cursor: pointer;
 	color: var(--e-global-color-primary);
@@ -170,6 +175,37 @@ body.woocommerce-account
 .mmd-route-pagination .route-pagination-no {
 	font-size: 13px;
 	color: #444;
+}
+
+/* -- Public Route Application -- */
+.mmd-popup .mmd-popup-inner.apply-public {
+	max-height: 80%;
+	overflow-y: scroll;
+}
+.mmd-popup .mmd-popup-inner.apply-public .mmd-loader-wrap  {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+.mmd-popup .apply-public .mmd-apply-desc {
+	margin: 20px 0 30px !important;
+}
+.mmd-popup .apply-public .mmd-form-row select {
+	border: 1px solid #d8d8d8;
+	padding: 12px 5px;
+	color: #414549;
+}
+.mmd-popup .apply-public .mmd-form-row label {
+	font-size: 14px;
+	color: #000;
+}
+.mmd-popup .apply-public .mmd-form-row p {
+	font-size: 13px;
+	margin: 0 0 8px !important;
+}
+.mmd-popup .apply-public .mmd-form-row #aboutEvent,
+.mmd-popup .apply-public .mmd-form-row #sendLinks {
+	min-height: 80px;
 }
 
 /* -- User Profile Picture -- */

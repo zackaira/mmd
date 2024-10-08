@@ -6,6 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import EditRoutePopup from "./EditRoutePopup";
 import parse from "html-react-parser";
 import { convertRouteDistance, getUnitName, parseRouteData } from "../../utils"
+import ApplyForPublicPopup from "./UI/ApplyForPublicPopup";
 
 const AccountRoutes = ({ mmdObj }) => {
 	const apiUrl = mmdObj.apiUrl;
@@ -20,6 +21,9 @@ const AccountRoutes = ({ mmdObj }) => {
 	const [editingRoute, setEditingRoute] = useState(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isFormModified, setIsFormModified] = useState(false);
+	
+	const [isApplyingForPublic, setIsApplyingForPublic] = useState(false);
+	const [applyingForPublicRoute, setApplyingForPublicRoute] = useState(null);
 
 	useEffect(() => {
 		const fetchRoutes = async () => {
@@ -209,6 +213,47 @@ const AccountRoutes = ({ mmdObj }) => {
 		return parse(stripedHtml);
 	};
 
+	const applyForRoutePublic = (routeId) => {
+        const route = savedRoutes.find(route => route.routeId === routeId);
+        setApplyingForPublicRoute(route);
+    };
+
+    const handleApplyForPublic = async (routeId, eventType, aboutEvent, sendLinks) => {
+		setIsApplyingForPublic(true);
+        try {
+            const response = await fetch(
+                `${apiUrl}mmd-api/v1/apply-for-public-route`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-WP-Nonce": mmdObj.nonce,
+                    },
+                    body: JSON.stringify({
+						route_id: routeId,
+						event_type: eventType,
+						about_event: aboutEvent,
+						links: sendLinks,
+					}),
+                }
+            );
+
+            const data = await response.json();
+
+            if (data.success) {
+                toast.success(__("Application submitted successfully!", "mmd"));
+                setApplyingForPublicRoute(null);
+				setIsApplyingForPublic(false);
+            } else {
+                toast.error(__("Failed to submit application. Please try again!", "mmd"));
+            }
+        } catch (error) {
+            console.error("Error applying for public route:", error);
+            toast.error(__("An error occurred. Please try again!", "mmd"));
+			setIsApplyingForPublic(false);
+        }
+    };
+
 	return (
 		<div className="mmd-routes">
 			<h3>{__("Saved Routes", "mmd")}</h3>
@@ -241,7 +286,7 @@ const AccountRoutes = ({ mmdObj }) => {
 										key={route.routeId}
 										className={`mmd-route ${
 											index % 2 === 0 ? "alt-background" : ""
-										}`}
+										} ${userDetails.event_organizer && route.isRouteOwner ? "iseo" : ""}`}
 									>
 										{deletingRouteId === route.routeId && (
 											<div className="route-loader">
@@ -286,6 +331,13 @@ const AccountRoutes = ({ mmdObj }) => {
 												onClick={() => handleDeleteRoute(route.routeId)}
 												title={__("Delete This Route", "mmd")}
 											></span>
+											{userDetails.event_organizer && route.isRouteOwner && (
+												<span
+													className="fa-solid fa-bullhorn mmd-route-icon makepublic"
+													onClick={() => applyForRoutePublic(route.routeId)}
+													title={__("Apply to make this route public", "mmd")}
+												></span>
+											)}
 										</div>
 									</div>
 								);
@@ -336,6 +388,15 @@ const AccountRoutes = ({ mmdObj }) => {
 				isFormModified={isFormModified}
 				setIsFormModified={setIsFormModified}
 			/>
+
+			<ApplyForPublicPopup
+                isOpen={!!applyingForPublicRoute}
+                onClose={() => setApplyingForPublicRoute(null)}
+                route={applyingForPublicRoute || {}}
+                onApply={handleApplyForPublic}
+                mmdObj={mmdObj}
+				isApplyingForPublic={isApplyingForPublic}
+            />
 
 			<ToastContainer
 				position="bottom-center"
